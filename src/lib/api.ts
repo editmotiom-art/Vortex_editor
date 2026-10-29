@@ -18,6 +18,26 @@ import { lerConfig } from './config';
 
 const PREFIXO_NETLIFY = '/.netlify/functions';
 
+/**
+ * Espelho estático (GitHub Pages) não roda funções: quando o site é aberto por
+ * `*.github.io`, o editor usa automaticamente a API da Netlify como servidor.
+ * As funções já liberam CORS `*`, então funciona de qualquer origem.
+ */
+export const API_ESPELHO = 'https://vortex-editor.netlify.app';
+
+/** true quando a página está no espelho estático (sem /.netlify/functions) */
+export const noEspelho = (): boolean =>
+  typeof location !== 'undefined' && /(^|\.)github\.io$/.test(location.hostname);
+
+/** base é um Worker/servidor (rotas /api/…) em vez da Netlify (/.netlify/functions/…) */
+const baseEhWorker = (b: string): boolean => /workers\.dev|\/api$/.test(b) || !/netlify\.app$/.test(b);
+
+/** caminho completo de uma função dentro de uma base */
+export const caminhoEm = (base: string, nome: string): string => {
+  if (!base) return `${PREFIXO_NETLIFY}/${nome}`;
+  return baseEhWorker(base) ? `${base}/api/${nome}` : `${base}${PREFIXO_NETLIFY}/${nome}`;
+};
+
 /** base configurada (ex.: https://vortex-api.seunome.workers.dev) ou '' */
 export const baseApi = (): string => {
   const doPainel = (lerConfig().api?.url ?? '').trim();
@@ -28,8 +48,7 @@ export const baseApi = (): string => {
 
 /** URL final de uma função (drive, proxy, ferramentas, ia, minerar) */
 export const urlFuncao = (nome: string, params?: Record<string, string>): string => {
-  const base = baseApi();
-  const raiz = base ? `${base}/api/${nome}` : `${PREFIXO_NETLIFY}/${nome}`;
+  const raiz = caminhoEm(baseApi(), nome);
   if (!params) return raiz;
   const q = new URLSearchParams(params).toString();
   return `${raiz}?${q}`;
@@ -63,9 +82,25 @@ export const testarApi = async (url = baseApi()): Promise<SaudeApi> => {
     return r;
   }
   try {
-    const res = await fetch(`${url.replace(/\/+$/, '')}/api/ping`, { signal: AbortSignal.timeout(12000) });
-    const dados = (await res.json().catch(() => ({}))) as { ok?: boolean; versao?: string; erro?: string };
-    const r: SaudeApi = { em: Date.now(), ok: Boolean(res.ok && dados.ok), versao: dados.versao, erro: dados.erro };
+    const b = url.replace(/\/+$/, '');
+    const alvo = baseEhWorker(b)
+      ? `${b}/api/ping`
+      : `${b}${PREFIXO_NETLIFY}/drive?pasta=17NI-W43qk9jb5rzARXLnAAMahqrYZVWu`;
+    const res = await fetch(alvo, { signal: AbortSignal.timeout(20000) });
+    const dados = (await res.json().catch(() => ({}))) as {
+      ok?: boolean;
+      versao?: string;
+      erro?: string;
+      arquivos?: unknown[];
+      pastas?: unknown[];
+    };
+    const okNetlify = res.ok && ('arquivos' in dados || 'pastas' in dados);
+    const r: SaudeApi = {
+      em: Date.now(),
+      ok: Boolean(res.ok && (dados.ok || okNetlify)),
+      versao: dados.versao ?? (okNetlify ? 'netlify (funções)' : undefined),
+      erro: dados.erro,
+    };
     localStorage.setItem(K_SAUDE, JSON.stringify(r));
     return r;
   } catch (e) {
@@ -78,15 +113,16 @@ export const testarApi = async (url = baseApi()): Promise<SaudeApi> => {
 /** fetch com reserva: tenta a API configurada e, se falhar, a Netlify */
 export async function chamarFuncao(caminho: string, init?: RequestInit): Promise<Response> {
   const base = baseApi();
-  const netlify = `${PREFIXO_NETLIFY}/${caminho}`;
-  if (!base) return fetch(netlify, init);
+  const reserva = `${API_ESPELHO}${PREFIXO_NETLIFY}/${caminho}`;
+  if (base === API_ESPELHO) return fetch(reserva, init);
+  if (!base) return fetch(`${PREFIXO_NETLIFY}/${caminho}`, init);
   try {
-    const res = await fetch(`${base}/api/${caminho}`, init);
+    const res = await fetch(caminhoEm(base, caminho), init);
     if (res.status < 500) return res;
   } catch {
-    /* rede/host fora → usa a Netlify */
+    /* host fora → usa a reserva */
   }
-  return fetch(netlify, init);
+  return fetch(reserva, init);
 }
 
 /**
