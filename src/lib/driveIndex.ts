@@ -1,5 +1,6 @@
 import { useEditor } from '../store/editor';
 import { useUI } from '../store/ui';
+import { identityTransform } from '../types';
 
 /**
  * ÍNDICE DO DRIVE
@@ -126,8 +127,11 @@ export async function varrerAcervo(
   return indice;
 }
 
-/** baixa o item e entrega ao editor na aba Mídia */
-export async function baixarParaEditor(item: ItemDrive): Promise<boolean> {
+/**
+ * baixa o item e entrega ao editor.
+ * @param naTimeline quando true, já cria o clipe na timeline (o usuário vê o resultado)
+ */
+export async function baixarParaEditor(item: ItemDrive, naTimeline = false): Promise<boolean> {
   const toast = useUI.getState().toast;
   try {
     /* primeiro tenta por streaming (rápido, não carrega o arquivo na memória);
@@ -163,7 +167,32 @@ export async function baixarParaEditor(item: ItemDrive): Promise<boolean> {
         useEditor.getState().updateAssetDuration(asset.id, Math.round(el.duration * 1000));
       }
     }
-    toast(`“${item.nome}” está na aba Mídia`, 'ok');
+    if (naTimeline) {
+      const ed = useEditor.getState();
+      const trilha = ed.trilhaPara(tipo === 'audio' ? 'audio' : tipo === 'image' ? 'image' : 'video');
+      const atual = ed.doc.assets.find((a) => a.id === asset.id);
+      if (trilha) {
+        ed.addElement({
+          type: tipo === 'audio' ? 'audio' : tipo === 'image' ? 'image' : 'video',
+          name: item.nome,
+          trackId: trilha.id,
+          start: ed.playhead,
+          duration: Math.max(1000, atual?.durationMs || 5000),
+          sourceIn: 0,
+          assetId: asset.id,
+          transform: identityTransform(),
+          blend: 'normal',
+          effects: [],
+          volume: 1,
+          locked: false,
+          hidden: false,
+          color: tipo === 'audio' ? '#818cf8' : tipo === 'image' ? '#fbbf24' : '#22d3ee',
+        });
+      }
+      toast(`“${item.nome}” na timeline`, 'ok');
+    } else {
+      toast(`“${item.nome}” está na aba Mídia`, 'ok');
+    }
     return true;
   } catch (e) {
     toast(`Não deu para baixar “${item.nome}”: ${(e as Error).message}`, 'err');

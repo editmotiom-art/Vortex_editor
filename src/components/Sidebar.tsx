@@ -210,6 +210,10 @@ export function Sidebar({ onImport, onAdicionarTudo, onLimparMidia, mobileOpen }
                   e.dataTransfer.setData('text/vortex-asset', a.id);
                 }}
                 onDoubleClick={() => createMediaElement(a.id)}
+                onClick={() => {
+                  /* no celular não existe duplo clique: um toque já manda para a timeline */
+                  if (window.matchMedia('(max-width: 900px), (pointer: coarse)').matches) createMediaElement(a.id);
+                }}
                 title="Arraste para a timeline ou dê duplo clique"
               >
                 <div
@@ -225,7 +229,7 @@ export function Sidebar({ onImport, onAdicionarTudo, onLimparMidia, mobileOpen }
                 >
                   {a.kind === 'video' ? '▶' : a.kind === 'audio' ? '♪' : '▣'}
                 </div>
-                <div className="media-info">
+                <div className="media-info" style={{ flex: 1, minWidth: 0 }}>
                   <div className="media-name">{a.name}</div>
                   <div className="media-sub">
                     {a.durationMs > 0 ? fmtTime(a.durationMs) : a.kind}

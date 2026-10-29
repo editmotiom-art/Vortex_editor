@@ -1,0 +1,32 @@
+/** valida XML solto na bandeja → biblioteca, e "na timeline" do Extrair */
+import { chromium } from 'playwright';
+import fs from 'node:fs';
+const b = await chromium.launch();
+const ctx = await b.newContext({ viewport: { width: 1500, height: 950 } });
+const p = await ctx.newPage();
+const errs = []; p.on('pageerror', e => errs.push(e.message));
+await p.goto('http://127.0.0.1:8890', { waitUntil: 'networkidle' });
+await p.click('.lp-nav-acoes button:has-text("Abrir editor")');
+await p.waitForTimeout(400);
+await p.fill('input[placeholder="Como quer ser chamado"]', 'XML Tester');
+await p.fill('input[type=email]', `x${Date.now()}@v.dev`);
+await p.fill('input[type=password]', 'vortex2026');
+await p.click('button:has-text("Criar conta e abrir o editor")');
+await p.waitForTimeout(1500);
+
+const xml = '/tmp/xmls/Cinematic Titles Pack Vol 3 - Typography.xml';
+console.log('xml existe:', fs.existsSync(xml));
+console.log('bandeja?', await p.locator('.bandeja').count(), await p.locator('.bandeja-abrir').count());
+await p.locator('.bandeja-abrir').click().catch(()=>{});
+await p.waitForTimeout(300);
+await p.locator('.bandeja input[type=file]').setInputFiles(xml);
+await p.waitForTimeout(2500);
+console.log('busca:', await p.locator('.search').first().getAttribute('placeholder'));
+const cards = await p.locator('[title^="Abrir"]').count();
+console.log('cards de XML na biblioteca:', cards);
+if (cards) await p.locator('[title^="Abrir"]').first().click({ force: true });
+await p.waitForTimeout(1200);
+console.log('clipes no editor:', await p.evaluate(() => window.__vortexDoc().elements.length));
+await p.screenshot({ path: '/home/user/vortex/docs/screenshot-xml-soltar.png' });
+console.log('errs:', errs.slice(0,3));
+await b.close();

@@ -16,7 +16,22 @@ export interface MediaPool {
 /** cache de mídia: um <video> por asset (reutilizado, sem recriar a cada frame) */
 export class MediaCache implements MediaPool {
   private videos = new Map<string, HTMLVideoElement>();
+  private readyCbs: Array<() => void> = [];
   private images = new Map<string, HTMLImageElement>();
+
+  /** avisa sempre que um vídeo termina de carregar/buscar (para redesenhar o frame) */
+  onReady(cb: () => void): void {
+    this.readyCbs.push(cb);
+  }
+
+  /** algum vídeo ativo ainda está carregando/buscando? (preview precisa redesenhar) */
+  someLoading(): boolean {
+    for (const v of this.videos.values()) {
+      if (v.readyState < 2) return true;
+      if (v.seeking) return true;
+    }
+    return false;
+  }
 
   syncFor(doc: ProjectDoc, timeMs: number, playing: boolean): void {
     const active = new Set<string>();
@@ -36,6 +51,10 @@ export class MediaCache implements MediaPool {
           v.playsInline = true;
           v.preload = 'auto';
           v.crossOrigin = 'anonymous';
+          const avisar = () => this.readyCbs.forEach((cb) => cb());
+          v.addEventListener('loadeddata', avisar);
+          v.addEventListener('seeked', avisar);
+          v.addEventListener('canplay', avisar);
           this.videos.set(asset.id, v);
         }
         const el = doc.elements.find((e) => e.assetId === asset.id && timeMs >= e.start && timeMs <= e.start + e.duration);
@@ -46,7 +65,10 @@ export class MediaCache implements MediaPool {
             if (Math.abs(v.currentTime - target) > 0.34) v.currentTime = Math.max(0, target);
           } else {
             if (!v.paused) v.pause();
-            if (Math.abs(v.currentTime - target) > 0.02) v.currentTime = Math.max(0, target);
+            const alvo = Math.max(0, target);
+            // só busca quando o frame está decodificado: durante o seek o <video>
+            // fica "vazio" e o compositor desenharia preto
+            if (v.readyState >= 2 && Math.abs(v.currentTime - alvo) > 0.02) v.currentTime = alvo;
           }
         }
       } else if (asset.kind === 'image') {

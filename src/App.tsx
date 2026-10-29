@@ -8,10 +8,12 @@ import { ExportModal, PacksModal, ShortcutsModal, AccountModal } from './compone
 import { PainelCliente } from './components/PainelCliente';
 import { Extrair } from './components/Extrair';
 import { DropGlobal } from './components/DropGlobal';
+import { SoltarUniversal } from './components/SoltarUniversal';
 import { StudioIA } from './components/StudioIA';
 import { ImportModal } from './components/ImportModal';
 import { ImportarXML } from './components/ImportarXML';
 import { Entrar } from './components/Entrar';
+import { Landing } from './components/Landing';
 import { sessaoAtual } from './lib/contas';
 import { identityTransform } from './types';
 import { Admin } from './components/Admin';
@@ -82,6 +84,9 @@ export default function App() {
     document.documentElement.setAttribute('data-theme', salvo === 'claro' ? 'light' : 'dark');
   }, []);
 
+  /* ---------- landing é a porta de entrada; #planos leva direto aos planos ---------- */
+  const [naEntrada, setNaEntrada] = useState(!localStorage.getItem('vortex.vistoLanding'));
+
   /* ---------- rota simples por hash (#admin) ---------- */
   useEffect(() => {
     const onHash = () => setRota(location.hash.replace('#', ''));
@@ -117,7 +122,7 @@ export default function App() {
         }
         const url = URL.createObjectURL(f);
         const meta = kind === 'image' ? { durationMs: 5000, width: 0, height: 0 } : await probeDuration(url, kind);
-        addAsset({
+        const asset = addAsset({
           name: f.name,
           kind,
           url,
@@ -127,12 +132,58 @@ export default function App() {
           origin: 'user',
           sizeBytes: f.size,
         });
+        /* vai direto para a timeline: o usuário não fica com tela preta depois de dar play */
+        const ed = useEditor.getState();
+        const trilha = ed.trilhaPara(kind === 'audio' ? 'audio' : kind === 'image' ? 'image' : 'video');
+        if (trilha) {
+          ed.addElement({
+            type: kind === 'audio' ? 'audio' : kind === 'image' ? 'image' : 'video',
+            name: f.name,
+            trackId: trilha.id,
+            start: ed.playhead,
+            duration: meta.durationMs > 0 ? meta.durationMs : 5000,
+            sourceIn: 0,
+            assetId: asset.id,
+            transform: identityTransform(),
+            blend: 'normal',
+            effects: [],
+            volume: 1,
+            locked: false,
+            hidden: false,
+            color: kind === 'audio' ? '#818cf8' : kind === 'image' ? '#fbbf24' : '#22d3ee',
+          });
+        }
         n += 1;
       }
-      if (n) toast(`${n} arquivo(s) importado(s) — estão na aba "Mídia"`, 'ok');
+      if (n) {
+        const st = useEditor.getState();
+        const fim = st.doc.elements.reduce((m, e) => Math.max(m, e.start + e.duration), 0);
+        toast(`${n} arquivo(s) na timeline — dê play ou arraste para ajustar`, 'ok');
+        if (fim > st.playhead && st.playhead >= fim - 1) st.setPlayhead(0);
+      }
     },
     [addAsset, toast],
   );
+
+  /* XML solto em qualquer lugar: lê na hora e guarda na biblioteca (sem depender da aba XML estar aberta) */
+  useEffect(() => {
+    const receber = (ev: Event) => {
+      const xmls = (ev as CustomEvent<File[]>).detail;
+      if (!xmls?.length) return;
+      void (async () => {
+        const { importarLote, salvarLote } = await import('./lib/bibliotecaXML');
+        const r = await importarLote(xmls, () => undefined);
+        if (r.importados.length) await salvarLote(r.importados, () => undefined);
+        useUI.getState().setSidebarTab('xml');
+        toast(
+          `${r.importados.length} template(s) de XML na biblioteca${r.erros.length ? ` · ${r.erros.length} inválido(s)` : ''}`,
+          r.importados.length ? 'ok' : 'warn',
+        );
+      })();
+    };
+    window.addEventListener('vortex:xml-soltos', receber as EventListener);
+    return () => window.removeEventListener('vortex:xml-soltos', receber as EventListener);
+  }, [toast]);
 
   /* trilha de teste (usada pelos testes automatizados do export) */
   useEffect(() => {
@@ -443,14 +494,30 @@ export default function App() {
     return <Admin onSair={() => { location.hash = ''; setRota(''); }} />;
   }
 
-  /* ---------- não logado: tela de entrada ---------- */
+  /* ---------- não logado: página de vendas → entrada ---------- */
   if (!sessao) {
+    const marcarEntrada = () => localStorage.setItem('vortex.vistoLanding', '1');
+    if (naEntrada) {
+      return (
+        <Landing
+          onCriar={() => {
+            marcarEntrada();
+            setNaEntrada(false);
+          }}
+          onEntrar={() => {
+            marcarEntrada();
+            setNaEntrada(false);
+          }}
+        />
+      );
+    }
     return (
       <Entrar
         onEntrar={(s) => {
           setSessao(s);
           toast(`Bem-vindo, ${s.nome.split(' ')[0]}!`, 'ok');
         }}
+        onVoltar={() => setNaEntrada(true)}
       />
     );
   }
@@ -458,6 +525,39 @@ export default function App() {
   return (
     <div className="app">
       <TopBar onImport={importFiles} />
+      {/* alternador de gavetas: garante biblioteca/inspetor acessíveis em qualquer largura.
+          Fica visível só em telas estreitas (CSS). */}
+      <div className="gaveta-switch">
+        <button
+          className={gaveta === 'lib' ? 'active' : ''}
+          onClick={() => setGaveta(gaveta === 'lib' ? null : 'lib')}
+          title="Biblioteca e mídia"
+        >
+          ☰ Biblioteca
+        </button>
+        <button
+          className={gaveta === 'insp' ? 'active' : ''}
+          onClick={() => setGaveta(gaveta === 'insp' ? null : 'insp')}
+          title="Propriedades do clipe"
+        >
+          ⚙ Propriedades
+        </button>
+        <button onClick={() => openModal('export')} title="Exportar">
+          ⤒ Exportar
+        </button>
+      </div>
+
+      <SoltarUniversal
+        onArquivos={(arqs) => {
+          const xmls = arqs.filter((f) => /\.xml$/i.test(f.name));
+          const midias = arqs.filter((f) => !/\.xml$/i.test(f.name));
+          if (midias.length) void importFiles(midias);
+          if (xmls.length) {
+            window.dispatchEvent(new CustomEvent('vortex:xml-soltos', { detail: xmls }));
+            toast(`${xmls.length} XML(s) — abra a aba XML da biblioteca`, 'default');
+          }
+        }}
+      />
 
       <DropGlobal
         onArquivos={(arqs) => {

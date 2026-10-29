@@ -3,6 +3,7 @@ import { criarConta, entrar, type Sessao } from '../lib/contas';
 
 interface Props {
   onEntrar: (s: Sessao) => void;
+  onVoltar?: () => void;
 }
 
 const LOGO = (
@@ -12,7 +13,7 @@ const LOGO = (
   </svg>
 );
 
-export function Entrar({ onEntrar }: Props) {
+export function Entrar({ onEntrar, onVoltar }: Props) {
   const [modo, setModo] = useState<'entrar' | 'criar'>('criar');
   const [nome, setNome] = useState('');
   const [email, setEmail] = useState('');

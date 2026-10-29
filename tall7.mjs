@@ -20,6 +20,9 @@ const log = (...a) => console.log(...a);
 await page.goto(BASE, { waitUntil: 'networkidle' });
 await page.waitForTimeout(700);
 
+// passa pela página de vendas
+await page.locator('.lp-nav-acoes button:has-text("Abrir editor")').click().catch(() => {});
+await page.waitForTimeout(400);
 // cria conta para entrar no editor
 if (await page.locator('text=Criar sua conta').first().isVisible().catch(() => false)) {
   const email = `teste${Date.now()}@vortex.dev`;

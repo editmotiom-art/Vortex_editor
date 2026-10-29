@@ -115,6 +115,28 @@ export function Extrair() {
     }
   };
 
+  /** baixa os itens e já monta na timeline (o usuário vê o resultado na hora) */
+  const levarParaTimeline = async (ids: string[]) => {
+    const alvos = itens.filter((i) => ids.includes(i.id) && i.tipo !== 'outro');
+    if (!alvos.length) {
+      toast('Selecione ao menos um vídeo, áudio ou imagem', 'warn');
+      return;
+    }
+    setOcupado(true);
+    let ok = 0;
+    for (let i = 0; i < alvos.length; i += 1) {
+      setProg(`Preparando ${i + 1} de ${alvos.length} · ${alvos[i].nome.slice(0, 32)}`);
+      if (await baixarParaEditor(alvos[i], true)) ok += 1;
+    }
+    setOcupado(false);
+    setProg('');
+    toast(`${ok} mídia(s) na timeline`, ok ? 'ok' : 'warn');
+    if (ok) {
+      window.dispatchEvent(new Event('vortex:fechar-gaveta'));
+      closeModal();
+    }
+  };
+
   return (
     <div className="extrair">
       <div className="tabs" style={{ marginBottom: 12 }}>
@@ -224,7 +246,15 @@ export function Extrair() {
               Nenhum
             </button>
             <button className="btn primary sm" disabled={ocupado} onClick={() => void baixarSelecionados()}>
-              ↓ Baixar {sel.size} para o editor
+              ↓ Baixar {sel.size} para a biblioteca
+            </button>
+            <button
+              className="btn ghost sm"
+              disabled={ocupado}
+              onClick={() => void levarParaTimeline(Array.from(sel))}
+              title="Baixa e monta os itens selecionados na timeline"
+            >
+              ▸ {sel.size} na timeline
             </button>
           </div>
 
@@ -248,12 +278,23 @@ export function Extrair() {
                 <span className="ex-pasta">{a.pasta}</span>
                 <button
                   className="btn ghost sm"
+                  title="Baixar para a biblioteca"
                   onClick={(e) => {
                     e.preventDefault();
                     void baixarVarios([a], 1);
                   }}
                 >
                   ↓
+                </button>
+                <button
+                  className="btn ghost sm"
+                  title="Usar na timeline"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    void levarParaTimeline([a.id]);
+                  }}
+                >
+                  ▸
                 </button>
               </label>
             ))}

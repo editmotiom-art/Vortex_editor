@@ -13,6 +13,7 @@ export function Preview() {
   const poolRef = useRef<MediaCache | null>(null);
   const mixerRef = useRef<AudioMixer | null>(null);
   const rafRef = useRef<number>(0);
+  const redrawRef = useRef<number>(0);
   const startRef = useRef<{ wall: number; base: number }>({ wall: 0, base: 0 });
   const [scale, setScale] = useState(1);
 
@@ -27,6 +28,7 @@ export function Preview() {
       mixerRef.current = null;
     }
     return () => {
+      cancelAnimationFrame(redrawRef.current);
       poolRef.current?.dispose();
       mixerRef.current?.dispose();
     };
@@ -80,7 +82,34 @@ export function Preview() {
     }
     pool.syncFor(doc, playhead, playing);
     renderFrame(ctx, doc, playhead, { width: W, height: H, pool, timeMs: playhead });
+
+    /* enquanto o vídeo ainda não entregou o frame (carregando ou buscando),
+       redesenha sozinho — antes a tela ficava preta até algo mais acontecer */
+    cancelAnimationFrame(redrawRef.current);
+    let tentativas = 0;
+    const redesenhar = () => {
+      if (!pool.someLoading() || tentativas > 240) return;
+      tentativas += 1;
+      renderFrame(ctx, doc, useEditor.getState().playhead, { width: W, height: H, pool, timeMs: playhead });
+      redrawRef.current = requestAnimationFrame(redesenhar);
+    };
+    redrawRef.current = requestAnimationFrame(redesenhar);
   }, [doc, playhead, playing]);
+
+  /* o <video> avisa quando o frame chegou */
+  useEffect(() => {
+    const c = canvasRef.current;
+    const pool = poolRef.current as (MediaCache & { onReady?: (cb: () => void) => void }) | null;
+    if (!c || !pool?.onReady) return;
+    pool.onReady(() => {
+      const ctx = c.getContext('2d', { alpha: false });
+      if (!ctx) return;
+      const W = c.width;
+      const H = c.height;
+      const st = useEditor.getState();
+      renderFrame(ctx, st.doc, st.playhead, { width: W, height: H, pool, timeMs: st.playhead });
+    });
+  }, []);
 
   /* loop de playback */
   useEffect(() => {

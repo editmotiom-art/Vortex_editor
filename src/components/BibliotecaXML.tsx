@@ -38,6 +38,18 @@ export function BibliotecaXML({ onAplicar }: { onAplicar?: () => void }) {
     void recarregar();
   }, []);
 
+  /* XML solto em qualquer lugar da tela (bandeja / arrastar e soltar) entra na biblioteca */
+  useEffect(() => {
+    const receber = (ev: Event) => {
+      const detalhe = (ev as CustomEvent<File[]>).detail;
+      if (!Array.isArray(detalhe) || !detalhe.length) return;
+      void lerArquivos(detalhe);
+    };
+    window.addEventListener('vortex:xml-soltos', receber as EventListener);
+    return () => window.removeEventListener('vortex:xml-soltos', receber as EventListener);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   /* ---------------- leitura em lote ---------------- */
   const lerArquivos = async (arquivos: File[]) => {
     const xmls = arquivos.filter((f) => /\.xml$/i.test(f.name));
