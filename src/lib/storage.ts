@@ -137,7 +137,7 @@ export const storage = {
     };
     if (!w.showDirectoryPicker) return null;
     try {
-      const dir = await w.showDirectoryPicker({ mode: 'readwrite' });
+      const dir = await w.showDirectoryPicker();
       return new LocalFolderProvider(dir);
     } catch {
       return null;
