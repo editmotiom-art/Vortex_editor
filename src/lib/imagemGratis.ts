@@ -79,7 +79,8 @@ export async function gerarImagemGratis(
   try {
     const url =
       `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt.slice(0, 900))}` +
-      `?width=${w}&height=${h}&model=flux&nologo=true&seed=${Date.now() % 99999}`;
+      `?width=${w}&height=${h}&model=flux&nologo=true&seed=${Date.now() % 99999}` +
+      `&referrer=${encodeURIComponent(location.hostname || 'vortex-editor.netlify.app')}`;
     const r = await fetch(url);
     if (r.ok) {
       const blob = await r.blob();

@@ -111,13 +111,14 @@ async function acaoVoz(corpo) {
   }
 }
 var modelosGratis = ["openai-fast", "openai", "mistral", "llama"];
+var REFERRER = "vortex-editor.netlify.app";
 async function pollinations(prompt, sistema) {
   let ultimo = "";
   for (const modelo of modelosGratis) {
-    const url = `https://text.pollinations.ai/${encodeURIComponent(prompt)}?model=${modelo}&seed=${Date.now() % 99999}`;
+    const url = `https://text.pollinations.ai/${encodeURIComponent(prompt)}?model=${modelo}&seed=${Date.now() % 99999}&referrer=${encodeURIComponent(REFERRER)}`;
     try {
       const r = await fetch(url, {
-        headers: { "user-agent": UA, accept: "text/plain" },
+        headers: { "user-agent": UA, accept: "text/plain", referer: `https://${REFERRER}/` },
         signal: AbortSignal.timeout(45e3)
       });
       if (!r.ok) {
@@ -130,10 +131,13 @@ async function pollinations(prompt, sistema) {
         continue;
       }
       if (sistema.trim()) {
-        const r2 = await fetch(`https://text.pollinations.ai/${encodeURIComponent(prompt)}?model=${modelo}`, {
-          headers: { "user-agent": UA, accept: "text/plain" },
-          signal: AbortSignal.timeout(45e3)
-        });
+        const r2 = await fetch(
+          `https://text.pollinations.ai/${encodeURIComponent(prompt)}?model=${modelo}&referrer=${encodeURIComponent(REFERRER)}`,
+          {
+            headers: { "user-agent": UA, accept: "text/plain", referer: `https://${REFERRER}/` },
+            signal: AbortSignal.timeout(45e3)
+          }
+        );
         if (r2.ok) {
           const t2 = (await r2.text()).trim();
           if (t2.length > 40) texto = t2;
