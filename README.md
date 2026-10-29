@@ -112,6 +112,23 @@ Lista completa no app: botão **Atalhos**.
 
 ---
 
+## Publicar / Deploy
+
+### GitHub
+| SO | Comando |
+|---|---|
+| Windows | duplo clique em **`publicar.bat`** |
+| Mac/Linux | `bash publicar.sh` |
+
+O script inicializa o repositório, commita e envia para
+`https://github.com/editmotiom-art/Vortex_editor` (pede token no lugar da senha).
+Guia completo: `editor-pro/PUBLICAR-NO-GITHUB.md`.
+
+### Netlify
+1. **Add new site → Import an existing project → GitHub → `Vortex_editor`**
+2. Build `npm run build` · Publish `dist` (já configurado no `netlify.toml`)
+3. Variáveis: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_CDN_URL`
+
 ## Deploy
 
 ### Netlify (recomendado — zero config)
