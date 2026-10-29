@@ -3,8 +3,8 @@
  * A lógica é a mesma (server/ponte.ts adapta Request → IncomingMessage).
  */
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { responder } from '../server/ponte.js';
-import funcao from '../netlify/functions/proxy.js';
+import { responder } from '../server/ponte';
+import funcao from '../netlify/functions/proxy';
 
 export const config = { maxDuration: 60 };
 

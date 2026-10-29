@@ -1,0 +1,16 @@
+# Não precisa subir para o build da Vercel
+pages/
+docs/
+cloudflare/
+uploads/
+supabase/
+diag*.mjs
+testar*.mjs
+provar*.mjs
+verif*.mjs
+gravar*.mjs
+provaCompleta.mjs
+roteiro-demo.mjs
+whispertest.mjs
+inspect.mjs
+.vercel-dev/
