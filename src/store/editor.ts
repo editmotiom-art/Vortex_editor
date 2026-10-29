@@ -106,6 +106,7 @@ interface EditorState {
   addMarker: (label?: string) => void;
   removeMarker: (id: string) => void;
 
+  importarProjeto: (doc: ProjectDoc) => void;
   save: () => void;
   load: () => ProjectDoc | null;
   reset: () => void;
@@ -529,6 +530,12 @@ export const useEditor = create<EditorState>((set, get) => ({
   },
 
   removeMarker: (id) => set((s) => ({ doc: { ...s.doc, markers: s.doc.markers.filter((m) => m.id !== id) } })),
+
+  importarProjeto: (doc) => {
+    get().commit();
+    set({ doc, selection: [], playhead: 0 });
+    get().save();
+  },
 
   save: () => {
     const doc = get().doc;

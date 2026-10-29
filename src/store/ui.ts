@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { sessaoAtual, type Sessao } from '../lib/contas';
 
-export type ModalId = 'export' | 'packs' | 'shortcuts' | 'account' | 'import' | 'checkout' | 'ia' | null;
+export type ModalId = 'export' | 'packs' | 'shortcuts' | 'account' | 'import' | 'checkout' | 'ia' | 'xml' | null;
 
 export interface Toast {
   id: string;

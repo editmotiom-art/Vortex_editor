@@ -76,6 +76,9 @@ export function TopBar({ onImport }: Props) {
       >
         Baixar de site
       </button>
+      <button className="btn ghost" onClick={() => openModal('xml')} title="Importar projeto .xml do Alight Motion">
+        XML
+      </button>
       <button className="btn ghost" onClick={() => openModal('packs')} title="Conteúdo e packs">
         Conteúdo
       </button>

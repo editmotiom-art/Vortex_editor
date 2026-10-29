@@ -6,6 +6,7 @@ import { Inspector } from './components/Inspector';
 import { Timeline } from './components/Timeline';
 import { ExportModal, PacksModal, ShortcutsModal, AccountModal } from './components/Modals';
 import { ImportModal } from './components/ImportModal';
+import { ImportarXML } from './components/ImportarXML';
 import { Entrar } from './components/Entrar';
 import { sessaoAtual } from './lib/contas';
 import { Admin } from './components/Admin';
@@ -320,6 +321,7 @@ export default function App() {
       {modal === 'shortcuts' && <ShortcutsModal />}
       {modal === 'account' && <AccountModal />}
       {modal === 'checkout' && <Checkout />}
+      {modal === 'xml' && <ImportarXML />}
 
       <div className="toasts">
         {toasts.map((t) => (
