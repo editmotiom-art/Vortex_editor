@@ -153,7 +153,7 @@ async function acaoVoz(corpo: Record<string, unknown>): Promise<Response> {
    2. TEXTO (gerador de roteiro/prompt)
    ============================================================ */
 
-const modelosGratis = ['openai-fast', 'openai', 'mistral', 'llama'];
+const modelosGratis = ['openai-fast'];
 
 /**
  * O Pollinations devolve 402 para chamadas sem referrer identificado (proteção
@@ -170,7 +170,7 @@ async function pollinations(prompt: string, sistema: string): Promise<string> {
     try {
       const r = await fetch(url, {
         headers: { 'user-agent': UA, accept: 'text/plain', referer: `https://${REFERRER}/` },
-        signal: AbortSignal.timeout(45000),
+        signal: AbortSignal.timeout(15000),
       });
       if (!r.ok) {
         ultimo = `Pollinations ${r.status}`;
@@ -187,7 +187,7 @@ async function pollinations(prompt: string, sistema: string): Promise<string> {
           `https://text.pollinations.ai/${encodeURIComponent(prompt)}?model=${modelo}&referrer=${encodeURIComponent(REFERRER)}`,
           {
             headers: { 'user-agent': UA, accept: 'text/plain', referer: `https://${REFERRER}/` },
-            signal: AbortSignal.timeout(45000),
+            signal: AbortSignal.timeout(12000),
           },
         );
         if (r2.ok) {
@@ -202,6 +202,31 @@ async function pollinations(prompt: string, sistema: string): Promise<string> {
   }
   throw new Error(ultimo || 'motor gratuito não respondeu');
 }
+
+/**
+ * 2º caminho: mesma API do Pollinations no formato OpenAI (/openai/v1).
+ * Como o app roda em navegador, a chamada vai direto do cliente (CORS livre)
+ * — aqui o servidor também usa como reserva.
+ */
+const pollinationsOpenAI = async (prompt: string, sistema: string): Promise<string> => {
+  const r = await fetch('https://text.pollinations.ai/openai/v1/chat/completions', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      model: 'openai-fast',
+      messages: [
+        ...(sistema ? [{ role: 'system', content: sistema }] : []),
+        { role: 'user', content: prompt },
+      ],
+    }),
+    signal: AbortSignal.timeout(14000),
+  });
+  if (!r.ok) throw new Error(`Pollinations OpenAI ${r.status}`);
+  const d = (await r.json()) as { choices?: { message?: { content?: string } }[] };
+  const texto = d.choices?.[0]?.message?.content?.trim() ?? '';
+  if (!texto) throw new Error('Pollinations OpenAI devolveu vazio');
+  return texto;
+};
 
 const apiCompativel = async (corpo: Record<string, unknown>, prompt: string, sistema: string) => {
   const chave = String(corpo.chave ?? '');
@@ -229,22 +254,37 @@ const apiCompativel = async (corpo: Record<string, unknown>, prompt: string, sis
 };
 
 async function acaoTexto(corpo: Record<string, unknown>): Promise<Response> {
-  const prompt = String(corpo.prompt ?? '').trim();
-  const sistema = String(corpo.sistema ?? '').trim();
+  // prompt curto = resposta rápida: modelos abertos demoram com texto enorme
+  const prompt = String(corpo.prompt ?? '').trim().slice(0, 1800);
+  const sistema = String(corpo.sistema ?? '').trim().slice(0, 1500);
   if (!prompt) return json({ ok: false, erro: 'prompt vazio' }, 400);
 
   try {
     const texto = await apiCompativel(corpo, prompt, sistema);
     return json({ ok: true, texto, fonte: 'api' });
   } catch (eApi) {
+    // formato OpenAI (devolve JSON limpo) e, se falhar, o clássico texto puro
     try {
-      const texto = await pollinations(prompt, sistema);
+      const texto = await pollinationsOpenAI(prompt, sistema);
       return json({ ok: true, texto, fonte: 'pollinations' });
-    } catch (e) {
-      return json(
-        { ok: false, erro: `API do painel: ${(eApi as Error).message} · motor gratuito: ${(e as Error).message}` },
-        502,
-      );
+    } catch (eOpenAI) {
+      try {
+        const texto = await pollinations(prompt, sistema);
+        return json({ ok: true, texto, fonte: 'pollinations' });
+      } catch (e) {
+        const detalhe = `${(eOpenAI as Error).message} · ${(e as Error).message}`;
+        const limite = /402|FREE_LIMIT|limite/i.test(detalhe);
+        return json(
+          {
+            ok: false,
+            erro: limite
+              ? 'O motor grátis aceita 1 resposta a cada 30 segundos. Espere 30 s e tente de novo (ou coloque uma chave grátis do Groq no painel → IA).'
+              : `API do painel: ${(eApi as Error).message} · motor gratuito: ${detalhe}`,
+            limite,
+          },
+          502,
+        );
+      }
     }
   }
 }

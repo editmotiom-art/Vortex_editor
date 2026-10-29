@@ -154,17 +154,24 @@ export function ChatCriacao({ aoFechar }: { aoFechar?: () => void }) {
         body: JSON.stringify({
           acao: 'texto',
           prompt: `Crie um roteiro de vídeo curto (15 a 30 segundos) para: ${base}. Divida em cenas com tempo, imagem e fala. Português do Brasil, direto ao ponto. Formato: tabela markdown com as colunas tempo | imagem | fala | texto na tela.`,
-          sistema: `Você é um diretor de criação seguindo a skill "${skill.nome}". Instruções da skill: ${skill.texto.slice(0, 3500)}`,
+          sistema: `Diretor de criação seguindo a skill "${skill.nome}". Instruções: ${skill.texto.slice(0, 1400)}`,
           chave: cfg.ia.chave,
           baseUrl: cfg.ia.baseUrl,
           modelo: cfg.ia.modeloTexto,
         }),
+        // a função na Netlify é curta: 22 s é o teto antes de usar a reserva
+        signal: AbortSignal.timeout(22000),
       });
-      const dados = (await res.json().catch(() => ({}))) as { ok?: boolean; texto?: string; fonte?: string };
+      const dados = (await res.json().catch(() => ({}))) as { ok?: boolean; texto?: string; fonte?: string; erro?: string };
       if (dados.ok && dados.texto) {
         falar({ autor: 'vortex', texto: dados.texto, fonte: dados.fonte === 'api' ? 'api' : 'pollinations-texto' });
       } else {
-        falar({ autor: 'vortex', texto: roteiroLocal(base, skill.nome), fonte: 'local' });
+        // motor ocupado/limitado: entrega o roteiro treinado na hora, sem travar
+        falar({
+          autor: 'vortex',
+          texto: `${roteiroLocal(base, skill.nome)}\n\n_(${dados.erro ?? 'motor gratuito indisponível agora'} — este roteiro foi montado pelo motor local do Vortex.)_`,
+          fonte: 'local',
+        });
       }
     } catch {
       falar({ autor: 'vortex', texto: roteiroLocal(base, skill.nome), fonte: 'local' });

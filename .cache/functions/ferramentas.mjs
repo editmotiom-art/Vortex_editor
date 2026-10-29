@@ -110,7 +110,7 @@ async function acaoVoz(corpo) {
     return json({ ok: false, erro: e.message }, 502);
   }
 }
-var modelosGratis = ["openai-fast", "openai", "mistral", "llama"];
+var modelosGratis = ["openai-fast", "mistral", "llama"];
 var REFERRER = "vortex-editor.netlify.app";
 async function pollinations(prompt, sistema) {
   let ultimo = "";
@@ -119,7 +119,7 @@ async function pollinations(prompt, sistema) {
     try {
       const r = await fetch(url, {
         headers: { "user-agent": UA, accept: "text/plain", referer: `https://${REFERRER}/` },
-        signal: AbortSignal.timeout(45e3)
+        signal: AbortSignal.timeout(15e3)
       });
       if (!r.ok) {
         ultimo = `Pollinations ${r.status}`;
@@ -135,7 +135,7 @@ async function pollinations(prompt, sistema) {
           `https://text.pollinations.ai/${encodeURIComponent(prompt)}?model=${modelo}&referrer=${encodeURIComponent(REFERRER)}`,
           {
             headers: { "user-agent": UA, accept: "text/plain", referer: `https://${REFERRER}/` },
-            signal: AbortSignal.timeout(45e3)
+            signal: AbortSignal.timeout(12e3)
           }
         );
         if (r2.ok) {
@@ -175,8 +175,8 @@ var apiCompativel = async (corpo, prompt, sistema) => {
   return texto;
 };
 async function acaoTexto(corpo) {
-  const prompt = String(corpo.prompt ?? "").trim();
-  const sistema = String(corpo.sistema ?? "").trim();
+  const prompt = String(corpo.prompt ?? "").trim().slice(0, 1800);
+  const sistema = String(corpo.sistema ?? "").trim().slice(0, 1500);
   if (!prompt) return json({ ok: false, erro: "prompt vazio" }, 400);
   try {
     const texto = await apiCompativel(corpo, prompt, sistema);
