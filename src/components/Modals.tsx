@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useEditor } from '../store/editor';
 import { useUI } from '../store/ui';
+import { mudarPlano, sair as sairConta } from '../lib/contas';
 import { PACKS } from '../data/library';
 import { EXPORT_PRESETS, exportVideo, exportAudio, exportFrame, download, exportProjectJson } from '../lib/exporter';
 import { fmtBytes, fmtTime } from '../lib/anim';
@@ -305,7 +306,28 @@ export function ShortcutsModal() {
 
 /* ============================= CONTA / ASSINATURA ============================= */
 export function AccountModal() {
-  const { user } = useUI();
+  const { user, sessao, setSessao, closeModal, toast } = useUI();
+
+  const virarPro = () => {
+    if (!sessao) return;
+    mudarPlano(sessao.contaId, 'pro');
+    setSessao({ ...sessao, plano: 'pro' });
+    toast('Plano Pro ativado 🎉', 'ok');
+  };
+
+  const desligar = () => {
+    if (!sessao) return;
+    mudarPlano(sessao.contaId, 'free');
+    setSessao({ ...sessao, plano: 'free' });
+    toast('Voltou para o plano Free', 'default');
+  };
+
+  const sairDaConta = () => {
+    sairConta();
+    setSessao(null);
+    closeModal();
+    toast('Você saiu da conta', 'default');
+  };
   return (
     <Modal title="Conta e assinatura">
       <div style={{ display: 'flex', gap: 14, alignItems: 'center', marginBottom: 14 }}>
@@ -372,15 +394,31 @@ export function AccountModal() {
               <span>✓</span> Templates e LUTs novos todo mês
             </div>
           </div>
-          <button className="btn primary" style={{ width: '100%', marginTop: 10 }} onClick={() => alert('Checkout será conectado ao Stripe/Mercado Pago na próxima etapa.')}>
-            Assinar Pro
-          </button>
+          {user?.plan === 'pro' ? (
+            <button className="btn" style={{ width: '100%', marginTop: 10 }} onClick={desligar}>
+              Cancelar assinatura
+            </button>
+          ) : (
+            <button className="btn primary" style={{ width: '100%', marginTop: 10 }} onClick={virarPro}>
+              Assinar Pro — R$ 29,90/mês
+            </button>
+          )}
         </div>
       </div>
 
+      <div className="row" style={{ marginTop: 12 }}>
+        <div style={{ fontSize: 11.5, color: 'var(--txt-2)' }}>
+          {sessao?.email} · sessão neste navegador
+        </div>
+        <div className="spacer" />
+        <button className="btn ghost sm" onClick={sairDaConta}>
+          Sair da conta
+        </button>
+      </div>
+
       <div className="hint" style={{ marginTop: 12 }}>
-        O controle de acesso por assinatura fica no banco (tabela <code>subscriptions</code>) e é verificado por uma
-        Edge Function antes de liberar packs e export em alta resolução.
+        Pagamento ainda não está conectado — o botão ativa o Pro na hora para você testar tudo. Quando o Mercado
+        Pago/Stripe for ligado, a cobrança passa a ser verificada no servidor antes de liberar o plano.
       </div>
     </Modal>
   );

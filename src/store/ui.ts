@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { sessaoAtual, type Sessao } from '../lib/contas';
 
 export type ModalId = 'export' | 'packs' | 'shortcuts' | 'account' | 'import' | null;
 
@@ -14,6 +15,7 @@ interface UIState {
   sidebarTab: 'library' | 'media' | 'packs';
   inspectorOpen: boolean;
   user: { name: string; plan: 'free' | 'pro'; avatar: string } | null;
+  sessao: Sessao | null;
   installedPacks: string[];
 
   openModal: (m: ModalId) => void;
@@ -22,15 +24,21 @@ interface UIState {
   dismiss: (id: string) => void;
   setSidebarTab: (t: UIState['sidebarTab']) => void;
   setUser: (u: UIState['user']) => void;
+  setSessao: (s: Sessao | null) => void;
   installPack: (id: string) => void;
 }
+
+const sessaoInicial = sessaoAtual();
 
 export const useUI = create<UIState>((set, get) => ({
   modal: null,
   toasts: [],
   sidebarTab: 'library',
   inspectorOpen: true,
-  user: { name: 'Criador', plan: 'pro', avatar: 'C' },
+  user: sessaoInicial
+    ? { name: sessaoInicial.nome, plan: sessaoInicial.plano, avatar: (sessaoInicial.nome[0] ?? 'V').toUpperCase() }
+    : null,
+  sessao: sessaoInicial,
   installedPacks: [],
 
   openModal: (m) => set({ modal: m }),
@@ -45,6 +53,11 @@ export const useUI = create<UIState>((set, get) => ({
 
   setSidebarTab: (t) => set({ sidebarTab: t }),
   setUser: (u) => set({ user: u }),
+  setSessao: (s) =>
+    set({
+      sessao: s,
+      user: s ? { name: s.nome, plan: s.plano, avatar: (s.nome[0] ?? 'V').toUpperCase() } : null,
+    }),
   installPack: (id) => {
     set((s) => ({ installedPacks: [...new Set([...s.installedPacks, id])] }));
     get().toast(`Pack "${id}" instalado — itens liberados na biblioteca`, 'ok');

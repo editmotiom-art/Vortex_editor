@@ -58,7 +58,7 @@ const server = http.createServer(async (req, res) => {
   const url = new URL(req.url ?? '/', `http://localhost:${porta}`);
 
   /* ---- funções ---- */
-  const mFunc = url.pathname.match(/^\/\.netlify\/functions\/([a-z0-9-]+)$/i);
+  const mFunc = url.pathname.match(/^\/\.netlify\/functions\/([a-z0-9_-]+)$/i);
   if (mFunc) {
     const fn = funcoes.get(mFunc[1]);
     if (!fn) {

@@ -6,6 +6,8 @@ import { Inspector } from './components/Inspector';
 import { Timeline } from './components/Timeline';
 import { ExportModal, PacksModal, ShortcutsModal, AccountModal } from './components/Modals';
 import { ImportModal } from './components/ImportModal';
+import { Entrar } from './components/Entrar';
+import { sessaoAtual } from './lib/contas';
 import type { ImportedMedia } from './lib/importMedia';
 import { useEditor } from './store/editor';
 import { useUI } from './store/ui';
@@ -33,8 +35,17 @@ function probeDuration(url: string, kind: 'video' | 'audio'): Promise<{ duration
 export default function App() {
   const { addAsset, doc, setPlaying, playing, setPlayhead, selection, splitSelected, deleteSelected, duplicateSelected, undo, redo, addMarker, setTool, zoom, setZoom, save, setIn, setOut } =
     useEditor();
-  const { modal, toasts, toast } = useUI();
+  const { modal, toasts, toast, sessao, setSessao } = useUI();
   const loaded = useRef(false);
+
+  /* ---------- sessão: garante o estado do usuário no boot ---------- */
+  useEffect(() => {
+    if (!sessao) {
+      const s = sessaoAtual();
+      if (s) setSessao(s);
+    }
+  }, [sessao, setSessao]);
+
 
   /* ---------- importar arquivos ---------- */
   const importFiles = useCallback(
@@ -226,6 +237,18 @@ export default function App() {
   void setPlaying;
   void doc;
   void setOut;
+
+  /* ---------- não logado: tela de entrada ---------- */
+  if (!sessao) {
+    return (
+      <Entrar
+        onEntrar={(s) => {
+          setSessao(s);
+          toast(`Bem-vindo, ${s.nome.split(' ')[0]}!`, 'ok');
+        }}
+      />
+    );
+  }
 
   return (
     <div className="app">
