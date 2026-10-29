@@ -126,3 +126,36 @@ Worker. Screenshot do fallback: `docs/prova/14-fallback-netlify.png`.
    GitHub, `88229a8`); até lá o site em produção segue no deploy `6ae3bdd8`.
 3. `editmotiom-art.github.io/Vortex_editor/pages/` já recebeu o build novo —
    serve para conferir a interface, mas sem funções (13/19).
+
+---
+
+## Rodada: SISTEMA ONLINE (29/10/2026) — URL única
+
+### Endereço oficial (site + todas as funções)
+
+**https://editmotiom-art.github.io/Vortex_editor/pages/**
+
+- Site estático no GitHub Pages (grátis, sem crédito).
+- As 5 funções rodam na Netlify (`vortex-editor.netlify.app/.netlify/functions/…`),
+  que **já liberam CORS `*`** — verificado com `OPTIONS` 204 e
+  `access-control-allow-origin: *` nas rotas `drive`, `proxy` e `ferramentas`.
+- `src/lib/api.ts` detecta `*.github.io` e usa essa API automaticamente; o
+  endereço aparece em **Admin → API e hospedagem** como “netlify (funções)”.
+- Se um dia a URL do Worker (Cloudflare) for colada no painel, ela tem
+  prioridade. Nada quebra em nenhum dos dois casos.
+
+### Prova no endereço público (`testarTudo.mjs`)
+
+**19/19 · 0 erro de JS** — voz 2,1 s (MP3 41 KB, 5,30 s), 30 skills, skill
+importada por link, roteiro via API grátis, pasta do pack com **373 arquivos**,
+Baixa Tudo, abas do painel, landing rolando no celular.
+
+Screenshots: `docs/prova/16-online-landing.png`, `17-online-editor.png`,
+`18-online-celular.png`, `15-admin-api.png`.
+
+### Detalhe importante
+
+A Netlify continua bloqueando **deploy novo** (403 crédito), mas as funções já
+publicadas seguem no ar — é isso que mantém o sistema 100% funcional agora.
+Quando houver crédito, `npm run build && npx netlify deploy --prod …` publica a
+versão nova também lá, sem mudar nada no endereço acima.
