@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { sessaoAtual, type Sessao } from '../lib/contas';
 
-export type ModalId = 'export' | 'packs' | 'shortcuts' | 'account' | 'import' | null;
+export type ModalId = 'export' | 'packs' | 'shortcuts' | 'account' | 'import' | 'checkout' | 'ia' | null;
 
 export interface Toast {
   id: string;
@@ -14,7 +14,7 @@ interface UIState {
   toasts: Toast[];
   sidebarTab: 'library' | 'media' | 'packs';
   inspectorOpen: boolean;
-  user: { name: string; plan: 'free' | 'pro'; avatar: string } | null;
+  user: { name: string; plan: 'free' | 'pro' | 'studio'; avatar: string } | null;
   sessao: Sessao | null;
   installedPacks: string[];
 

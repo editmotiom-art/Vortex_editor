@@ -83,6 +83,18 @@ export function TopBar({ onImport }: Props) {
         Atalhos
       </button>
 
+      <button
+        className="fs-btn"
+        onClick={() => {
+          const el = document.documentElement;
+          if (document.fullscreenElement) void document.exitFullscreen();
+          else void (el.requestFullscreen?.() ?? Promise.resolve());
+        }}
+        title="Tela cheia"
+      >
+        ⛶ <span className="lbl">Tela cheia</span>
+      </button>
+
       <div className="spacer" />
 
       <button
@@ -108,8 +120,15 @@ export function TopBar({ onImport }: Props) {
         Novo
       </button>
 
+      <button className="btn ghost" onClick={() => { location.hash = 'admin'; }} title="Painel administrativo">
+        Admin
+      </button>
       <button className="btn" onClick={() => openModal('account')} title="Conta e assinatura">
-        {user?.plan === 'pro' ? <span className="pill paid">PRO</span> : <span className="pill free">FREE</span>}
+        {user && user.plan !== 'free' ? (
+          <span className="pill paid">{user.plan.toUpperCase()}</span>
+        ) : (
+          <span className="pill free">FREE</span>
+        )}
       </button>
 
       <button className="btn primary" onClick={() => openModal('export')}>

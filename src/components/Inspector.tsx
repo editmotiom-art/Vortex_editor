@@ -91,7 +91,7 @@ function AnimRow({
   );
 }
 
-export function Inspector() {
+export function Inspector({ mobileOpen }: { mobileOpen?: boolean }) {
   const {
     doc,
     selection,
@@ -108,7 +108,7 @@ export function Inspector() {
 
   if (!el) {
     return (
-      <aside className="panel inspector">
+      <aside className={`panel inspector${mobileOpen ? ' mobile-open' : ''}`}>
         <div className="panel-head">Propriedades</div>
         <div className="panel-body">
           <div className="sec">
@@ -186,7 +186,7 @@ export function Inspector() {
   const isMedia = el.type === 'video' || el.type === 'image' || el.type === 'audio';
 
   return (
-    <aside className="panel inspector">
+    <aside className={`panel inspector${mobileOpen ? ' mobile-open' : ''}`}>
       <div className="panel-head">
         <span style={{ color: el.color }}>●</span>
         {el.name}

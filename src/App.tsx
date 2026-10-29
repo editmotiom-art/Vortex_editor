@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { TopBar } from './components/TopBar';
 import { Sidebar } from './components/Sidebar';
 import { Preview } from './components/Preview';
@@ -8,6 +8,9 @@ import { ExportModal, PacksModal, ShortcutsModal, AccountModal } from './compone
 import { ImportModal } from './components/ImportModal';
 import { Entrar } from './components/Entrar';
 import { sessaoAtual } from './lib/contas';
+import { Admin } from './components/Admin';
+import { Checkout } from './components/Checkout';
+import { lerConfig } from './lib/config';
 import type { ImportedMedia } from './lib/importMedia';
 import { useEditor } from './store/editor';
 import { useUI } from './store/ui';
@@ -35,8 +38,17 @@ function probeDuration(url: string, kind: 'video' | 'audio'): Promise<{ duration
 export default function App() {
   const { addAsset, doc, setPlaying, playing, setPlayhead, selection, splitSelected, deleteSelected, duplicateSelected, undo, redo, addMarker, setTool, zoom, setZoom, save, setIn, setOut } =
     useEditor();
-  const { modal, toasts, toast, sessao, setSessao } = useUI();
+  const { modal, toasts, toast, sessao, setSessao, openModal } = useUI();
   const loaded = useRef(false);
+  const [rota, setRota] = useState<string>(() => location.hash.replace('#', ''));
+  const [gaveta, setGaveta] = useState<'lib' | 'insp' | null>(null);
+
+  /* ---------- rota simples por hash (#admin) ---------- */
+  useEffect(() => {
+    const onHash = () => setRota(location.hash.replace('#', ''));
+    window.addEventListener('hashchange', onHash);
+    return () => window.removeEventListener('hashchange', onHash);
+  }, []);
 
   /* ---------- sessão: garante o estado do usuário no boot ---------- */
   useEffect(() => {
@@ -238,6 +250,11 @@ export default function App() {
   void doc;
   void setOut;
 
+  /* ---------- painel administrativo ---------- */
+  if (rota === 'admin') {
+    return <Admin onSair={() => { location.hash = ''; setRota(''); }} />;
+  }
+
   /* ---------- não logado: tela de entrada ---------- */
   if (!sessao) {
     return (
@@ -253,13 +270,48 @@ export default function App() {
   return (
     <div className="app">
       <TopBar onImport={importFiles} />
+
       <div className="workspace">
-        <Sidebar onImport={importFiles} />
+        <Sidebar onImport={importFiles} mobileOpen={gaveta === 'lib'} />
         <main className="center">
           <Preview />
           <Timeline />
         </main>
-        <Inspector />
+        <Inspector mobileOpen={gaveta === 'insp'} />
+      </div>
+
+      {gaveta && <div className="drawer-scrim" onClick={() => setGaveta(null)} />}
+
+      {/* barra inferior do celular */}
+      <nav className="mobile-dock">
+        <button className={`dock-btn${gaveta === 'lib' ? ' active' : ''}`} onClick={() => setGaveta(gaveta === 'lib' ? null : 'lib')}>
+          <span className="ico">▤</span>
+          Mídia
+        </button>
+        <button className="dock-btn" onClick={() => useEditor.getState().setPlaying(!useEditor.getState().playing)}>
+          <span className="ico">{playing ? '❚❚' : '▶'}</span>
+          Play
+        </button>
+        <button className="dock-btn" onClick={() => openModal('import')}>
+          <span className="ico">↓</span>
+          Baixar
+        </button>
+        <button className={`dock-btn${gaveta === 'insp' ? ' active' : ''}`} onClick={() => setGaveta(gaveta === 'insp' ? null : 'insp')}>
+          <span className="ico">⚙</span>
+          Ajustes
+        </button>
+        <button className="dock-btn" onClick={() => openModal('export')}>
+          <span className="ico">⤒</span>
+          Exportar
+        </button>
+      </nav>
+
+      {/* aviso de girar o celular */}
+      <div className="rotate-hint">
+        <div className="ph" />
+        <h3>Gire o celular</h3>
+        <p>O editor funciona melhor na horizontal, com mais espaço para a timeline.</p>
+        <button onClick={(e) => (e.currentTarget.parentElement as HTMLElement).style.display = 'none'}>Continuar assim</button>
       </div>
 
       {modal === 'export' && <ExportModal />}
@@ -267,6 +319,7 @@ export default function App() {
       {modal === 'packs' && <PacksModal />}
       {modal === 'shortcuts' && <ShortcutsModal />}
       {modal === 'account' && <AccountModal />}
+      {modal === 'checkout' && <Checkout />}
 
       <div className="toasts">
         {toasts.map((t) => (

@@ -3,6 +3,7 @@ import { useEditor } from '../store/editor';
 import { useUI } from '../store/ui';
 import { mudarPlano, sair as sairConta } from '../lib/contas';
 import { PACKS } from '../data/library';
+import { CatalogoDrive } from './PacksDrive';
 import { EXPORT_PRESETS, exportVideo, exportAudio, exportFrame, download, exportProjectJson } from '../lib/exporter';
 import { fmtBytes, fmtTime } from '../lib/anim';
 import { docDuration } from '../lib/renderer';
@@ -201,9 +202,32 @@ export function ExportModal() {
 
 /* ============================= PACKS / ARMAZENAMENTO ============================= */
 export function PacksModal() {
+  const [abaPacks, setAbaPacks] = useState<'editor' | 'drive'>('editor');
   const { installedPacks, installPack } = useUI();
+
+  const abas = (
+    <div className="tabs" style={{ marginBottom: 14, borderRadius: 8, overflow: 'hidden' }}>
+      <button className={`tab${abaPacks === 'editor' ? ' active' : ''}`} onClick={() => setAbaPacks('editor')}>
+        Packs do editor
+      </button>
+      <button className={`tab${abaPacks === 'drive' ? ' active' : ''}`} onClick={() => setAbaPacks('drive')}>
+        Meu Drive
+      </button>
+    </div>
+  );
+
+  if (abaPacks === 'drive') {
+    return (
+      <Modal title="Conteúdo do Drive" wide>
+        {abas}
+        <CatalogoDrive />
+      </Modal>
+    );
+  }
+
   return (
     <Modal title="Conteúdo e armazenamento" wide>
+      {abas}
       <div className="card" style={{ marginBottom: 12 }}>
         <h4>A regra que mantém seu banco pequeno</h4>
         <p>
@@ -306,13 +330,10 @@ export function ShortcutsModal() {
 
 /* ============================= CONTA / ASSINATURA ============================= */
 export function AccountModal() {
-  const { user, sessao, setSessao, closeModal, toast } = useUI();
+  const { user, sessao, setSessao, closeModal, toast, openModal } = useUI();
 
   const virarPro = () => {
-    if (!sessao) return;
-    mudarPlano(sessao.contaId, 'pro');
-    setSessao({ ...sessao, plano: 'pro' });
-    toast('Plano Pro ativado 🎉', 'ok');
+    openModal('checkout');
   };
 
   const desligar = () => {
@@ -341,7 +362,11 @@ export function AccountModal() {
           <div style={{ fontWeight: 800, fontSize: 14 }}>{user?.name}</div>
           <div style={{ fontSize: 11.5, color: 'var(--txt-2)' }}>
             Plano atual:{' '}
-            {user?.plan === 'pro' ? <span className="pill paid">PRO</span> : <span className="pill free">FREE</span>}
+            {user && user.plan !== 'free' ? (
+              <span className="pill paid">{user.plan.toUpperCase()}</span>
+            ) : (
+              <span className="pill free">FREE</span>
+            )}
           </div>
         </div>
       </div>
@@ -394,7 +419,7 @@ export function AccountModal() {
               <span>✓</span> Templates e LUTs novos todo mês
             </div>
           </div>
-          {user?.plan === 'pro' ? (
+          {user && user.plan !== 'free' ? (
             <button className="btn" style={{ width: '100%', marginTop: 10 }} onClick={desligar}>
               Cancelar assinatura
             </button>

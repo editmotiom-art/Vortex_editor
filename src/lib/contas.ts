@@ -14,7 +14,7 @@ const CHAVE_CONTAS = 'vortex.contas.v1';
 const CHAVE_SESSAO = 'vortex.sessao.v1';
 const DIAS_SESSAO = 30;
 
-export type Plano = 'free' | 'pro';
+export type Plano = 'free' | 'pro' | 'studio';
 
 export interface Conta {
   id: string;
@@ -156,3 +156,14 @@ export const apagarConta = (contaId: string): void => {
 };
 
 export const totalContas = (): number => lerContas().length;
+
+/** lista completa para o painel administrativo */
+export const listarContas = (): Conta[] => lerContas();
+
+/** admin troca o plano de um cliente */
+export const setPlanoConta = (id: string, plano: Plano): void => mudarPlano(id, plano);
+
+/** admin remove um cliente */
+export const excluirConta = (id: string): void => {
+  gravarContas(lerContas().filter((c) => c.id !== id));
+};

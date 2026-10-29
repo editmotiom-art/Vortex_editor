@@ -8,6 +8,7 @@ import type { EffectType } from '../types';
 
 interface Props {
   onImport: (files: FileList | File[]) => void;
+  mobileOpen?: boolean;
 }
 
 /** aplica um item da biblioteca no projeto */
@@ -118,7 +119,7 @@ function applyLibItem(item: LibItem): void {
   }
 }
 
-export function Sidebar({ onImport }: Props) {
+export function Sidebar({ onImport, mobileOpen }: Props) {
   const { doc, addAsset } = useEditor();
   const { sidebarTab, setSidebarTab, openModal, installedPacks, toast } = useUI();
   const [q, setQ] = useState('');
@@ -177,7 +178,7 @@ export function Sidebar({ onImport }: Props) {
   (window as unknown as Record<string, unknown>).__vortexAddMedia = createMediaElement;
 
   return (
-    <aside className="panel sidebar">
+    <aside className={`panel sidebar${mobileOpen ? ' mobile-open' : ''}`}>
       <div className="tabs">
         <button
           className={`tab ${sidebarTab === 'library' ? 'active' : ''}`}
