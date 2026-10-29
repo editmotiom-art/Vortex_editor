@@ -70,3 +70,59 @@ node testarTudo.mjs https://vortex-editor.netlify.app   # produção
 ```
 Telas em `docs/prova/` (01 voz na timeline, 02 gaveta de skills, 03 roteiro, 04 imagem, 05 catálogo de packs,
 06 pasta do pack, 07–10 admin, 11 celular, 12–13 pack baixando).
+
+---
+
+## Rodada: migração de host sem quebrar nada (29/10/2026)
+
+**Motivo:** a Netlify bloqueou deploys novos na conta (`403 Account credit usage
+exceeded`). O app em produção continua no ar (deploy `6ae3bdd8`), mas não aceita
+atualização até repor crédito. Em vez de pagar, a API ganhou um plano B gratuito.
+
+### O que mudou no editor
+
+| Antes | Agora |
+|---|---|
+| cada tela chamava `/.netlify/functions/…` | `src/lib/api.ts` decide o endereço |
+| uma API só (Netlify) | Netlify **ou** Cloudflare Worker, por URL no painel |
+| se a função falhasse, a tela ficava sem resposta | volta automático para a Netlify |
+
+- `src/lib/api.ts` — `urlFuncao()`, `chamarFuncao()` (fetch com reserva),
+  `testarApi()` (`/api/ping`), saúde salva em `vortex.api.saude`.
+- **Admin → API e hospedagem** (`/#admin`, aba nova): campo *URL da API*,
+  botão *Testar /api/ping*, data da última verificação e o passo a passo do
+  deploy grátis. Vazio = Netlify (nada muda para quem não mexer).
+- Ordem de resolução: painel → `VITE_API_URL` → `/.netlify/functions/…`.
+- Chamadas migradas: voz, chat/skills, importar skill por link, roteiro, texto
+  do admin, imagem do Studio, Drive, proxy do pack, mineração e Baixa Tudo.
+
+### Worker (`cloudflare/`)
+
+- `npm install` → `npx wrangler login` → `npm run deploy` no computador do dono.
+- Empacotado com esbuild (`build.mjs` → `dist/index.js`, 28,9 KB) porque o
+  runtime do Cloudflare não lê TypeScript direto.
+- Rotas validadas no runtime real (`wrangler dev --local`, Miniflare):
+  `ping` ✓ · `drive` ✓ (pasta FLYERS) · `ferramentas.voz` ✓ 200 `audio/mpeg`
+  24.960 B · `ferramentas.skill` ✓ (SKILL.md) · `ferramentas.texto` ✓
+  (`fonte: pollinations`) · `proxy` ✓ 200 `image/jpeg`.
+
+### Provas no navegador (Chromium real)
+
+| Teste | Resultado |
+|---|---|
+| `testarApiExterna.mjs` — editor + API no Worker | **6/6**, 0 erro de JS, 5 chamadas ao Worker, **0** fallback |
+| `testarFallback.mjs` — API configurada e morta | **2/2**: voz criada (5,7 s) e queda para a Netlify |
+| `testarTudo.mjs` — regressão completa no local | **19/19**, 0 erro de JS |
+
+Detalhes do teste externo: voz 4,6 s · 30 skills · skill importada por link ·
+roteiro 167 caracteres · pasta do pack com **373 arquivos** vinda do Drive pelo
+Worker. Screenshot do fallback: `docs/prova/14-fallback-netlify.png`.
+
+### O que continua pendente
+
+1. Você rodar `npx wrangler login && npm run deploy` em `cloudflare/` e colar a
+   URL em Admin → API e hospedagem (não tenho sua conta Cloudflare).
+2. Publicar o editor novo na Netlify quando houver crédito (o commit já está no
+   GitHub, `88229a8`); até lá o site em produção segue no deploy `6ae3bdd8`.
+3. `editmotiom-art.github.io/Vortex_editor/pages/` já recebeu o build novo —
+   serve para conferir a interface, mas sem funções (13/19).
