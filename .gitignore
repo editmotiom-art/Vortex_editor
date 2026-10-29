@@ -1,0 +1,56 @@
+# ============================================================
+# VORTEX — Editor profissional de vídeo, áudio e motion
+# ============================================================
+
+# deps
+node_modules/
+.pnpm-store/
+
+# build
+dist/
+build/
+out/
+.vite/
+*.tsbuildinfo
+
+# env / segredos (NUNCA commitar)
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+
+# sistema
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# logs
+*.log
+npm-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# testes
+coverage/
+playwright-report/
+test-results/
+smoke*.mjs
+
+# editores
+.vscode/*
+!.vscode/extensions.json
+.idea/
+
+# mídia pesada (não versionar assets)
+assets-brutos/
+packs/
+derivados/
+*.mp4
+*.mov
+*.mkv
+*.wav
+*.mp3
+*.rar
+*.zip
+!public/**/*.svg
