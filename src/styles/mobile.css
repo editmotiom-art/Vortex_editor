@@ -82,17 +82,24 @@
    CELULAR / TELA PEQUENA
    ============================================================ */
 @media (max-width: 900px) {
+  /* a página rola normalmente; só o editor é tela cheia e não rola */
   html,
   body,
   #root {
-    height: 100%;
-    overflow: hidden;
-    overscroll-behavior: none;
+    min-height: 100%;
+    overscroll-behavior-y: none;
   }
 
   .app {
     height: 100dvh;
+    min-height: 0;
   }
+  /* editor ocupa a janela: nada de rolagem do documento */
+  body:has(.app) {
+    height: 100dvh;
+    overflow: hidden;
+  }
+  body:has(.landing) { height: auto; overflow-y: auto; }
 
   /* topo compacto e rolável na horizontal */
   .topbar {

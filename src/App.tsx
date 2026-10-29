@@ -10,12 +10,16 @@ import { Extrair } from './components/Extrair';
 import { DropGlobal } from './components/DropGlobal';
 import { SoltarUniversal } from './components/SoltarUniversal';
 import { StudioIA } from './components/StudioIA';
+import { BaixaTudo } from './components/BaixaTudo';
 import { ImportModal } from './components/ImportModal';
 import { ImportarXML } from './components/ImportarXML';
 import { Entrar } from './components/Entrar';
 import { Landing } from './components/Landing';
+import { Transcricao } from './components/Transcricao';
+import { ChatCriacao } from './components/ChatCriacao';
 import { sessaoAtual } from './lib/contas';
 import { identityTransform } from './types';
+import { instalarCliques } from './lib/sons';
 import { Admin } from './components/Admin';
 import { Checkout } from './components/Checkout';
 import { lerConfig } from './lib/config';
@@ -85,7 +89,7 @@ export default function App() {
   }, []);
 
   /* ---------- landing é a porta de entrada; #planos leva direto aos planos ---------- */
-  const [naEntrada, setNaEntrada] = useState(!localStorage.getItem('vortex.vistoLanding'));
+  const [naEntrada, setNaEntrada] = useState(true);
 
   /* ---------- rota simples por hash (#admin) ---------- */
   useEffect(() => {
@@ -165,6 +169,9 @@ export default function App() {
     [addAsset, toast],
   );
 
+  /* som de clique na interface (ligado/desligado em Conteúdo) */
+  useEffect(() => instalarCliques(), []);
+
   /* XML solto em qualquer lugar: lê na hora e guarda na biblioteca (sem depender da aba XML estar aberta) */
   useEffect(() => {
     const receber = (ev: Event) => {
@@ -188,6 +195,9 @@ export default function App() {
   /* trilha de teste (usada pelos testes automatizados do export) */
   useEffect(() => {
     const w = window as unknown as { __vortexTeste: unknown; __vortexDoc: unknown };
+    (w as unknown as { __vortexStore: unknown }).__vortexStore = useEditor;
+    // exposto para testes automatizados abrirem modais por rota
+    (w as unknown as { __vortexUI: unknown }).__vortexUI = useUI;
     w.__vortexDoc = () => {
       const d = useEditor.getState().doc;
       return {
@@ -197,7 +207,15 @@ export default function App() {
           id: e.id, type: e.type, name: e.name, trackId: e.trackId,
           start: e.start, duration: e.duration, x: e.transform.x.base, y: e.transform.y.base,
           scale: e.transform.scale.base,
+          opacity: e.transform.opacity.base,
+          effects: (e.effects ?? []).map((f) => ({ type: f.type, amount: f.amount })),
+          blend: e.blend ?? null,
+          keyframes: e.transform.scale.keyframes?.length ?? 0,
+          text: (e as unknown as { text?: { content: string } }).text?.content ?? null,
+          shape: (e as unknown as { shape?: { fill: string } }).shape?.fill ?? null,
+          assetId: e.assetId ?? null,
         })),
+        assets: d.assets.map((a) => ({ id: a.id, name: a.name, kind: a.kind, url: a.url, durationMs: a.durationMs })),
       };
     };
     w.__vortexTeste = async (opts?: { video?: boolean; texto?: boolean; audio?: boolean }) => {
@@ -430,6 +448,12 @@ export default function App() {
         case 'm':
           st.addMarker();
           break;
+        case 't':
+          st.addText('Seu texto aqui');
+          break;
+        case 'r':
+          st.addShape('rect');
+          break;
         case 'i':
           st.setIn(st.playhead);
           break;
@@ -629,6 +653,22 @@ export default function App() {
       {modal === 'account' && <PainelCliente onSair={() => { setSessao(null); setGaveta(null); }} />}
       {modal === 'checkout' && <Checkout />}
       {modal === 'xml' && <ImportarXML />}
+      {modal === 'baixatudo' && (
+        <div className="overlay" onClick={() => useUI.getState().closeModal()}>
+          <div className="modal" style={{ width: 'min(700px,100%)' }} onClick={(e) => e.stopPropagation()}>
+            <div className="modal-head">
+              <div className="modal-title">⬇ Baixa Tudo — vídeo de qualquer site</div>
+              <div className="spacer" />
+              <button className="btn ghost icon" onClick={() => useUI.getState().closeModal()}>
+                ✕
+              </button>
+            </div>
+            <div className="modal-body">
+              <BaixaTudo aoFechar={() => useUI.getState().closeModal()} />
+            </div>
+          </div>
+        </div>
+      )}
       {modal === 'studio' && (
         <div className="overlay" onClick={() => useUI.getState().closeModal()}>
           <div className="modal" style={{ width: 'min(680px,100%)' }} onClick={(e) => e.stopPropagation()}>
@@ -641,6 +681,38 @@ export default function App() {
             </div>
             <div className="modal-body">
               <StudioIA aoFechar={() => useUI.getState().closeModal()} />
+            </div>
+          </div>
+        </div>
+      )}
+      {modal === 'chatcriacao' && (
+        <div className="overlay" onClick={() => useUI.getState().closeModal()}>
+          <div className="modal" style={{ width: 'min(940px,100%)' }} onClick={(e) => e.stopPropagation()}>
+            <div className="modal-head">
+              <div className="modal-title">✦ Criar com IA — chat, skill e referência</div>
+              <div className="spacer" />
+              <button className="btn ghost icon" onClick={() => useUI.getState().closeModal()}>
+                ✕
+              </button>
+            </div>
+            <div className="modal-body">
+              <ChatCriacao aoFechar={() => useUI.getState().closeModal()} />
+            </div>
+          </div>
+        </div>
+      )}
+      {modal === 'transcricao' && (
+        <div className="overlay" onClick={() => useUI.getState().closeModal()}>
+          <div className="modal" style={{ width: 'min(760px,100%)' }} onClick={(e) => e.stopPropagation()}>
+            <div className="modal-head">
+              <div className="modal-title">🎙 Transcrição e legendas</div>
+              <div className="spacer" />
+              <button className="btn ghost icon" onClick={() => useUI.getState().closeModal()}>
+                ✕
+              </button>
+            </div>
+            <div className="modal-body">
+              <Transcricao />
             </div>
           </div>
         </div>

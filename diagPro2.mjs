@@ -1,0 +1,33 @@
+import { chromium } from 'playwright';
+const BASE = process.argv[2] ?? 'http://127.0.0.1:8888';
+const b = await chromium.launch();
+const p = await (await b.newContext({ viewport: { width: 1440, height: 900 } })).newPage();
+await p.goto(BASE, { waitUntil: 'networkidle' });
+await p.click('.lp-nav-acoes button:has-text("Abrir editor")');
+await p.waitForTimeout(400);
+await p.fill('input[placeholder="Como quer ser chamado"]', 'PRO2');
+await p.fill('input[type=email]', `p2${Date.now()}@v.dev`);
+await p.fill('input[type=password]', 'vortex2026');
+await p.click('button:has-text("Criar conta e abrir o editor")');
+await p.waitForTimeout(1500);
+await p.locator('.topbar button:has-text("+ Texto")').first().click();
+await p.waitForTimeout(400);
+const docAntes = await p.evaluate(() => JSON.stringify(window.__vortexDoc().elements.map(e=>({fx:e.effects.map(f=>f.type),op:e.opacity,sc:e.scale}))));
+// clica no PRIMEIRO bp-btn e mostra os toasts que aparecem
+const btn = p.locator('.bp-btn').first();
+console.log('primeiro bp-btn:', await btn.innerText());
+await btn.click({ force: true });
+await p.waitForTimeout(1200);
+console.log('toasts:', await p.locator('.toast').allInnerTexts());
+const docDepois = await p.evaluate(() => JSON.stringify(window.__vortexDoc().elements.map(e=>({fx:e.effects.map(f=>f.type),op:e.opacity,sc:e.scale}))));
+console.log('antes :', docAntes);
+console.log('depois:', docDepois);
+console.log('todos bp-btn:', await p.locator('.bp-btn').allInnerTexts());
+// medida de escala: aplica "Cinema" pela biblioteca e vê o transform
+await p.locator('.sidebar .tab:has-text("Biblioteca")').first().click();
+await p.locator('.cat-chips .chip:has-text("Looks")').first().click();
+await p.waitForTimeout(300);
+await p.locator('.lib-card').first().click();
+await p.waitForTimeout(800);
+console.log('após Looks:', await p.evaluate(() => JSON.stringify(window.__vortexDoc().elements.map(e=>({fx:e.effects.map(f=>f.type),op:e.opacity})))));
+await b.close();

@@ -585,7 +585,16 @@ function wav(buf: AudioBuffer): Blob {
 }
 
 /** coloca o som na aba Mídia como um arquivo de verdade */
-export async function adicionarNaTimeline(preset: Preset, nome: string, loop = false): Promise<string> {
+/**
+ * @param opts.semAviso  não mostra o toast (usado quando o item entra em lote)
+ * @param opts.inicioMs  onde o clipe começa (padrão: playhead)
+ */
+export async function adicionarNaTimeline(
+  preset: Preset,
+  nome: string,
+  loop = false,
+  opts: { semAviso?: boolean; inicioMs?: number } = {},
+): Promise<string> {
   const buf = await bufferDe(preset);
   const blob = wav(buf);
   const url = URL.createObjectURL(blob);
@@ -607,7 +616,7 @@ export async function adicionarNaTimeline(preset: Preset, nome: string, loop = f
       type: 'audio',
       name: nome,
       trackId: trilha.id,
-      start: ed.playhead,
+      start: opts.inicioMs ?? ed.playhead,
       duration: Math.round(buf.duration * 1000),
       sourceIn: 0,
       assetId: asset.id,
@@ -628,6 +637,62 @@ export async function adicionarNaTimeline(preset: Preset, nome: string, loop = f
     const el = useEditor.getState().doc.elements.find((e) => e.assetId === asset.id);
     if (el) useEditor.getState().updateElement(el.id, { duration: Math.max(el.duration, ed.duration() || 8000) });
   }
-  useUI.getState().toast(`“${nome}” adicionado à timeline`, 'ok');
+  if (!opts.semAviso) useUI.getState().toast(`“${nome}” adicionado à timeline`, 'ok');
   return asset.id;
+}
+
+
+/* ============================================================
+   SOM DE CLIQUE NA INTERFACE
+   ------------------------------------------------------------
+   O usuário liga em "Conteúdo → sons". Cada clique de botão toca um
+   "tick" curtinho gerado no próprio navegador (o mesmo motor dos SFX).
+   Fica desligado por padrão para não incomodar quem está editando.
+   ============================================================ */
+
+let cliqueLigado = false;
+let cliqueCtx: AudioContext | null = null;
+let cliqueBuf: AudioBuffer | null = null;
+
+export const cliquesLigados = (): boolean => cliqueLigado;
+
+export function ligarCliques(ligar: boolean): void {
+  cliqueLigado = ligar;
+  localStorage.setItem('vortex.cliques', ligar ? '1' : '0');
+  if (ligar && !cliqueCtx) {
+    try {
+      cliqueCtx = new AudioContext();
+    } catch {
+      cliqueCtx = null;
+    }
+  }
+}
+
+/** registra o listener global (chamado uma vez no App) */
+export function instalarCliques(): () => void {
+  cliqueLigado = localStorage.getItem('vortex.cliques') === '1';
+  const aoClicar = (ev: MouseEvent) => {
+    if (!cliqueLigado) return;
+    const alvo = (ev.target as HTMLElement | null)?.closest('button, .chip, .tab, .lib-card');
+    if (!alvo) return;
+    void tocarClique();
+  };
+  document.addEventListener('click', aoClicar, true);
+  return () => document.removeEventListener('click', aoClicar, true);
+}
+
+async function tocarClique(): Promise<void> {
+  try {
+    if (!cliqueCtx) cliqueCtx = new AudioContext();
+    if (cliqueCtx.state === 'suspended') await cliqueCtx.resume();
+    if (!cliqueBuf) cliqueBuf = await bufferDe('click', cliqueCtx.sampleRate);
+    const src = cliqueCtx.createBufferSource();
+    const ganho = cliqueCtx.createGain();
+    ganho.gain.value = 0.18;
+    src.buffer = cliqueBuf;
+    src.connect(ganho).connect(cliqueCtx.destination);
+    src.start();
+  } catch {
+    /* áudio bloqueado pelo navegador: sem som, sem erro */
+  }
 }

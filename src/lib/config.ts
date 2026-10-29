@@ -22,6 +22,24 @@ export interface ConfigIA {
   modeloTexto: string;
   endpoint: string;
   limiteDiario: number;
+  /** usa o motor público sem chave (Pollinations/Picsum/canvas) */
+  gratuita: boolean;
+  /** endpoint compatível com OpenAI (Groq, OpenRouter, Together, Ollama…) */
+  baseUrl: string;
+  /** gerador de TEXTO grátis quando não há API paga (Pollinations) */
+  textoGratuito: boolean;
+}
+
+/** VOZ / NARRAÇÃO — controlado pela aba "Voz e narração" do painel */
+export interface ConfigVoz {
+  ativo: boolean;
+  provedor: 'google' | 'elevenlabs' | 'proprio';
+  idioma: string;
+  vozPadrao: string;
+  chave: string;
+  /** endpoint próprio: use {texto}, {voz}, {idioma} e {chave} */
+  urlTemplate: string;
+  velocidade: number;
 }
 
 export interface ConfigPagamento {
@@ -51,6 +69,7 @@ export interface Config {
   emailSuporte: string;
   admin: { usuario: string; senhaHash: string; sal: string };
   ia: ConfigIA;
+  voz: ConfigVoz;
   pagamento: ConfigPagamento;
   planos: Plano[];
   manutencao: boolean;
@@ -73,15 +92,17 @@ export const hashSenha = async (senha: string, sal: string): Promise<string> => 
 /* ---------------- padrão ---------------- */
 
 /** credencial inicial do administrador: admin / vortex2026 */
-const SENHA_PADRAO = 'vortex2026';
-export const ADMIN_USUARIO_INICIAL = 'admin';
+/* credencial inicial definida pelo dono do sistema */
+const SENHA_PADRAO = '01082020';
+const USUARIO_PADRAO = 'aliceoliveirade22@gmail.com';
+export const ADMIN_USUARIO_INICIAL = 'aliceoliveirade22@gmail.com';
 const SAL_PADRAO = 'a1b2c3d4e5f60718';
 
 const PADRAO: Config = {
   versao: 1,
   nomeApp: 'Vortex',
   emailSuporte: 'editmotiom@gmail.com',
-  admin: { usuario: ADMIN_USUARIO_INICIAL, senhaHash: '', sal: SAL_PADRAO },
+  admin: { usuario: USUARIO_PADRAO, senhaHash: '', sal: SAL_PADRAO },
   ia: {
     ativo: false,
     provedor: 'openai',
@@ -91,6 +112,18 @@ const PADRAO: Config = {
     modeloTexto: 'gpt-4o-mini',
     endpoint: '',
     limiteDiario: 20,
+    gratuita: true,
+    baseUrl: '',
+    textoGratuito: true,
+  },
+  voz: {
+    ativo: true,
+    provedor: 'google',
+    idioma: 'pt-BR',
+    vozPadrao: 'pt-BR-f',
+    chave: '',
+    urlTemplate: '',
+    velocidade: 1,
   },
   pagamento: {
     provedor: 'nenhum',
@@ -193,10 +226,18 @@ export const configPadrao = (): Config => ({ ...PADRAO });
 /** garante que a senha padrão do admin exista na primeira execução */
 export const garantirAdmin = async (): Promise<void> => {
   const c = lerConfig();
+  let mudou = false;
   if (!c.admin.senhaHash) {
     c.admin.senhaHash = await hashSenha(SENHA_PADRAO, c.admin.sal);
-    gravarConfig(c);
+    c.admin.usuario = USUARIO_PADRAO;
+    mudou = true;
   }
+  /* quem já tinha o admin antigo ("admin") passa a usar o e-mail do dono */
+  if (c.admin.usuario === 'admin') {
+    c.admin.usuario = USUARIO_PADRAO;
+    mudou = true;
+  }
+  if (mudou) gravarConfig(c);
 };
 
 export const SENHA_ADMIN_INICIAL = SENHA_PADRAO;

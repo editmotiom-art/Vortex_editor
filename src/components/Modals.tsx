@@ -4,8 +4,10 @@ import { useUI } from '../store/ui';
 import { mudarPlano, sair as sairConta } from '../lib/contas';
 import { PACKS } from '../data/library';
 import { CatalogoDrive } from './PacksDrive';
+import { PacksMonkey } from './PacksMonkey';
 import { EXPORT_PRESETS, exportVideo, exportAudio, exportFrame, download, exportProjectJson } from '../lib/exporter';
 import { useMemo } from 'react';
+import { cliquesLigados, ligarCliques } from '../lib/sons';
 import { fmtBytes, fmtTime } from '../lib/anim';
 import { docDuration } from '../lib/renderer';
 
@@ -259,8 +261,10 @@ export function ExportModal() {
 
 /* ============================= PACKS / ARMAZENAMENTO ============================= */
 export function PacksModal() {
-  const [abaPacks, setAbaPacks] = useState<'editor' | 'drive'>('editor');
+  const [abaPacks, setAbaPacks] = useState<'editor' | 'drive' | 'monkey'>('editor');
   const { installedPacks, installPack } = useUI();
+
+  const [comCliques, setComCliques] = useState(cliquesLigados());
 
   const abas = (
     <div className="tabs" style={{ marginBottom: 14, borderRadius: 8, overflow: 'hidden' }}>
@@ -269,6 +273,13 @@ export function PacksModal() {
       </button>
       <button className={`tab${abaPacks === 'drive' ? ' active' : ''}`} onClick={() => setAbaPacks('drive')}>
         Meu Drive
+      </button>
+      <button
+        className={`tab${abaPacks === 'monkey' ? ' active' : ''}`}
+        onClick={() => setAbaPacks('monkey')}
+        title="163 packs do Pack do Editor 4.0 — Drive e espelho no Sync"
+      >
+        Pack do Editor
       </button>
     </div>
   );
@@ -282,9 +293,33 @@ export function PacksModal() {
     );
   }
 
+  if (abaPacks === 'monkey') {
+    return (
+      <Modal title="Pack do Editor 4.0 — 163 packs" wide>
+        {abas}
+        <PacksMonkey />
+      </Modal>
+    );
+  }
+
   return (
     <Modal title="Conteúdo e armazenamento" wide>
       {abas}
+      <div className="card" style={{ marginBottom: 12 }}>
+        <h4>Som de clique na interface</h4>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5 }}>
+          <input
+            type="checkbox"
+            checked={comCliques}
+            onChange={(e) => {
+              setComCliques(e.target.checked);
+              ligarCliques(e.target.checked);
+              useUI.getState().toast(e.target.checked ? 'Sons de clique ligados' : 'Sons de clique desligados', 'ok');
+            }}
+          />
+          Tocar um som curtinho ao clicar nos botões (útil em apresentação e gravação de tela)
+        </label>
+      </div>
       <div className="card" style={{ marginBottom: 12 }}>
         <h4>A regra que mantém seu banco pequeno</h4>
         <p>

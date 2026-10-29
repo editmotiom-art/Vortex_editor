@@ -1,0 +1,12 @@
+import { pipeline } from '@huggingface/transformers';
+import { readFileSync } from 'node:fs';
+const t0 = Date.now();
+const asr = await pipeline('automatic-speech-recognition', 'onnx-community/whisper-base', { dtype: 'q8' });
+console.log('modelo carregado em', ((Date.now()-t0)/1000).toFixed(1), 's');
+const buf = readFileSync('/tmp/teste16k.wav');
+const pcm = new Float32Array((buf.length - 44) / 2);
+for (let i = 0; i < pcm.length; i++) pcm[i] = buf.readInt16LE(44 + i*2) / 32768;
+const t1 = Date.now();
+const out = await asr(pcm, { language: 'portuguese', task: 'transcribe', chunk_length_s: 30, return_timestamps: true });
+console.log('transcrito em', ((Date.now()-t1)/1000).toFixed(1), 's');
+console.log(JSON.stringify(out).slice(0, 900));

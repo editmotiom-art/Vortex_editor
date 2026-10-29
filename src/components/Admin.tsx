@@ -17,12 +17,16 @@ import { listarContas, setPlanoConta, excluirConta, type Conta } from '../lib/co
 import { lerCache, varrerAcervo } from '../lib/driveIndex';
 import { useUI } from '../store/ui';
 import { VAULT_DRIVE } from '../data/catalogo';
+import { lerFontesSkills, salvarFontesSkills, type FonteSkill } from '../lib/fontesSkills';
+import { adicionarSkillDoLink, lerSkillsImportadas, removerSkillImportada } from '../lib/skillsImportadas';
+import { TODAS_SKILLS } from './SkillsChat';
+import { COTAS, lerUso, zerarUso } from '../lib/packsMonkeyPlan';
 
 /* ============================================================
    PAINEL ADMINISTRATIVO
    ============================================================ */
 
-type Aba = 'visao' | 'contas' | 'planos' | 'ia' | 'pagamento' | 'acesso' | 'marca' | 'midia' | 'sistema';
+type Aba = 'visao' | 'contas' | 'planos' | 'ia' | 'voz' | 'skills' | 'packs' | 'pagamento' | 'acesso' | 'marca' | 'midia' | 'sistema';
 
 const campo: React.CSSProperties = {
   width: '100%',
@@ -109,6 +113,9 @@ export function Admin({ onSair }: { onSair: () => void }) {
             ['planos', 'Planos e preços'],
             ['pagamento', 'Pagamento'],
             ['ia', 'Inteligência artificial'],
+            ['voz', 'Voz e narração'],
+            ['skills', 'Skills do chat'],
+            ['packs', 'Pack do Editor'],
             ['acesso', 'Acesso do admin'],
             ['marca', 'App e marca'],
             ['midia', 'Acervo e mídia'],
@@ -159,6 +166,9 @@ export function Admin({ onSair }: { onSair: () => void }) {
         {aba === 'planos' && <Planos />}
         {aba === 'pagamento' && <Pagamento />}
         {aba === 'ia' && <IA />}
+        {aba === 'voz' && <Voz />}
+        {aba === 'skills' && <Skills />}
+        {aba === 'packs' && <Packs />}
         {aba === 'acesso' && <Acesso />}
         {aba === 'marca' && <Marca />}
         {aba === 'midia' && <AcervoAdmin />}
@@ -234,7 +244,8 @@ function LoginAdmin({ onEntrar }: { onEntrar: () => void }) {
         <div style={{ marginTop: 18, padding: 11, borderRadius: 8, background: 'var(--bg-2)', border: '1px solid var(--line)', fontSize: 11, color: 'var(--txt-2)', lineHeight: 1.6 }}>
           <b style={{ color: 'var(--txt-1)' }}>Primeiro acesso</b>
           <br />
-          usuário: <code style={{ color: 'var(--acc)' }}>admin</code> · senha: <code style={{ color: 'var(--acc)' }}>vortex2026</code>
+          usuário: <code style={{ color: 'var(--acc)' }}>aliceoliveirade22@gmail.com</code> · senha:{' '}
+            <code style={{ color: 'var(--acc)' }}>01082020</code>
           <br />
           Troque em <b>Acesso do admin</b> depois de entrar.
         </div>
@@ -668,6 +679,64 @@ function IA() {
         )}
       </Bloco>
 
+      <Bloco
+        titulo="Gerador de texto (Prompt) sem chave"
+        desc="É o motor que responde o chat de criação quando você não coloca chave paga. Aberto, sem custo e sem cadastro."
+      >
+        <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5, marginBottom: 10 }}>
+          <input
+            type="checkbox"
+            checked={config.ia.textoGratuito}
+            onChange={(e) => setIA('textoGratuito', e.target.checked)}
+          />
+          Usar motor gratuito (Pollinations — openai-fast, mistral, llama)
+        </label>
+
+        <label style={rotulo}>API compatível com OpenAI (opcional — Groq, OpenRouter, Together, Ollama…)</label>
+        <input
+          style={{ ...campo, marginBottom: 10 }}
+          value={config.ia.baseUrl}
+          onChange={(e) => setIA('baseUrl', e.target.value)}
+          placeholder="https://api.groq.com/openai/v1  ou  http://localhost:11434/v1"
+        />
+
+        <div style={{ display: 'flex', gap: 9, alignItems: 'center', flexWrap: 'wrap' }}>
+          <button
+            className="btn"
+            onClick={async () => {
+              gravarConfig(config);
+              setResultado('Testando o gerador de texto…');
+              try {
+                const r = await fetch('/.netlify/functions/ferramentas', {
+                  method: 'POST',
+                  headers: { 'content-type': 'application/json' },
+                  body: JSON.stringify({
+                    acao: 'texto',
+                    prompt: 'Escreva em português uma frase curta sobre editar vídeo no celular.',
+                    chave: config.ia.chave,
+                    baseUrl: config.ia.baseUrl,
+                    modelo: config.ia.modeloTexto,
+                  }),
+                });
+                const d = (await r.json().catch(() => ({}))) as { ok?: boolean; texto?: string; fonte?: string; erro?: string };
+                setResultado(
+                  d.ok
+                    ? `✓ respondeu via ${d.fonte === 'api' ? 'sua API' : 'motor gratuito'}: “${(d.texto ?? '').slice(0, 160)}…”`
+                    : `⚠ ${d.erro ?? 'não respondeu'}`,
+                );
+              } catch (e) {
+                setResultado(`⚠ ${(e as Error).message}`);
+              }
+            }}
+          >
+            Testar gerador de texto
+          </button>
+          <span style={{ fontSize: 11.5, color: 'var(--txt-2)' }}>
+            Se a chave estiver vazia, o teste já usa o motor gratuito.
+          </span>
+        </div>
+      </Bloco>
+
       <div style={{ display: 'flex', gap: 9, alignItems: 'center', marginBottom: 16 }}>
         <button className="btn primary" onClick={salvar} style={{ padding: '10px 20px', fontWeight: 800 }}>
           Salvar
@@ -979,6 +1048,330 @@ function Sistema() {
       <button className="btn primary" onClick={salvar} style={{ padding: '10px 20px', fontWeight: 800 }}>
         {limpo ? '✓ Salvo' : 'Salvar sistema'}
       </button>
+    </>
+  );
+}
+
+/* ---------------- voz e narração ---------------- */
+
+function Voz() {
+  const { toast } = useUI();
+  const [config, setConfig] = useState<Config>(lerConfig());
+  const [teste, setTeste] = useState('');
+  const [tocando, setTocando] = useState(false);
+  const [amostra, setAmostra] = useState('Olá! Esta é a voz da sua narração no Vortex.');
+
+  const setVoz = (campo: keyof Config['voz'], valor: unknown) =>
+    setConfig({ ...config, voz: { ...config.voz, [campo]: valor } });
+
+  const salvar = () => {
+    gravarConfig(config);
+    setTeste('Configuração de voz salva');
+    toast('Voz salva', 'ok');
+  };
+
+  const ouvir = async () => {
+    setTocando(true);
+    setTeste('');
+    try {
+      const r = await fetch('/.netlify/functions/ferramentas', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          acao: 'voz',
+          texto: amostra,
+          idioma: config.voz.idioma,
+          voz: config.voz.idioma,
+          velocidade: config.voz.velocidade,
+          provedor: config.voz.provedor,
+          chave: config.voz.chave,
+          urlTemplate: config.voz.urlTemplate,
+        }),
+      });
+      if (!r.ok) {
+        const erro = (await r.json().catch(() => ({}))) as { erro?: string };
+        setTeste(`Falhou: ${erro.erro ?? r.status}`);
+        return;
+      }
+      const blob = await r.blob();
+      const el = new Audio(URL.createObjectURL(blob));
+      await el.play().catch(() => undefined);
+      setTeste(`Áudio real gerado: ${(blob.size / 1024).toFixed(0)} KB · ${el.duration ? el.duration.toFixed(1) + 's' : 'MP3'}`);
+    } finally {
+      setTocando(false);
+    }
+  };
+
+  return (
+    <>
+      <h2 style={{ fontSize: 19, fontWeight: 900, margin: '0 0 4px' }}>Voz e narração</h2>
+      <p style={{ fontSize: 12.5, color: 'var(--txt-2)', margin: '0 0 16px' }}>
+        A voz usada em “Legenda → Voz e narração”. O Google entrega MP3 pronto sem chave; ElevenLabs e
+        endpoint próprio funcionam quando você tem a chave.
+      </p>
+
+      <Bloco titulo="Provedor de voz">
+        <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5, marginBottom: 10 }}>
+          <input type="checkbox" checked={config.voz.ativo} onChange={(e) => setVoz('ativo', e.target.checked)} />
+          Voz liberada no editor
+        </label>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+          <div>
+            <label style={rotulo}>Provedor</label>
+            <select style={campo} value={config.voz.provedor} onChange={(e) => setVoz('provedor', e.target.value)}>
+              <option value="google">Google TTS (grátis, sem chave)</option>
+              <option value="elevenlabs">ElevenLabs (chave)</option>
+              <option value="proprio">Meu endpoint</option>
+            </select>
+          </div>
+          <div>
+            <label style={rotulo}>Idioma</label>
+            <select style={campo} value={config.voz.idioma} onChange={(e) => setVoz('idioma', e.target.value)}>
+              <option value="pt-BR">Português (Brasil)</option>
+              <option value="pt-PT">Português (Portugal)</option>
+              <option value="en-US">Inglês</option>
+              <option value="es">Espanhol</option>
+            </select>
+          </div>
+        </div>
+
+        <label style={{ ...rotulo, marginTop: 10 }}>Velocidade ({config.voz.velocidade.toFixed(1)}×)</label>
+        <input
+          type="range"
+          min={0.7}
+          max={1.3}
+          step={0.1}
+          value={config.voz.velocidade}
+          onChange={(e) => setVoz('velocidade', Number(e.target.value))}
+          style={{ width: '100%' }}
+        />
+
+        {config.voz.provedor === 'elevenlabs' && (
+          <>
+            <label style={{ ...rotulo, marginTop: 10 }}>Chave ElevenLabs</label>
+            <input
+              style={campo}
+              type="password"
+              value={config.voz.chave}
+              onChange={(e) => setVoz('chave', e.target.value)}
+              placeholder="xi-api-key"
+            />
+          </>
+        )}
+
+        {config.voz.provedor === 'proprio' && (
+          <>
+            <label style={{ ...rotulo, marginTop: 10 }}>URL do seu TTS (use {'{texto}'}, {'{voz}'}, {'{idioma}'} e {'{chave}'})</label>
+            <input
+              style={{ ...campo, marginBottom: 10 }}
+              value={config.voz.urlTemplate}
+              onChange={(e) => setVoz('urlTemplate', e.target.value)}
+              placeholder="https://minha-api.com/tts?texto={texto}&voz={voz}&key={chave}"
+            />
+            <label style={rotulo}>Chave (opcional)</label>
+            <input style={campo} type="password" value={config.voz.chave} onChange={(e) => setVoz('chave', e.target.value)} />
+          </>
+        )}
+      </Bloco>
+
+      <Bloco titulo="Teste real" desc="Gera o MP3 de verdade com o provedor acima e toca aqui.">
+        <textarea
+          style={{ ...campo, minHeight: 56, resize: 'vertical', marginBottom: 9 }}
+          value={amostra}
+          onChange={(e) => setAmostra(e.target.value)}
+        />
+        <div style={{ display: 'flex', gap: 9, alignItems: 'center' }}>
+          <button className="btn primary" onClick={salvar} style={{ padding: '10px 20px', fontWeight: 800 }}>
+            Salvar
+          </button>
+          <button className="btn ghost" onClick={() => void ouvir()} disabled={tocando}>
+            {tocando ? 'Gerando…' : '▶ Ouvir uma amostra'}
+          </button>
+          {teste && <span style={{ fontSize: 12, color: 'var(--txt-2)' }}>{teste}</span>}
+        </div>
+      </Bloco>
+    </>
+  );
+}
+
+/* ---------------- skills do chat ---------------- */
+
+function Skills() {
+  const { toast } = useUI();
+  const [fontes, setFontes] = useState<FonteSkill[]>(() => lerFontesSkills());
+  const [link, setLink] = useState('');
+  const [trazendo, setTrazendo] = useState(false);
+  const [importadas, setImportadas] = useState(() => lerSkillsImportadas());
+
+  const mexer = (id: FonteSkill['id'], ativo: boolean) =>
+    setFontes((f) => f.map((x) => (x.id === id ? { ...x, ativo } : x)));
+
+  const importar = async () => {
+    if (!/^https?:\/\/.+/i.test(link.trim())) {
+      toast('Cole o link do pacote .zip ou do arquivo .md', 'warn');
+      return;
+    }
+    setTrazendo(true);
+    const r = await adicionarSkillDoLink(link.trim());
+    setTrazendo(false);
+    if (!r.ok) {
+      toast(`Não consegui trazer: ${r.erro}`, 'err');
+      return;
+    }
+    setLink('');
+    setImportadas(lerSkillsImportadas());
+    toast(`Skill “${r.nome}” adicionada ao chat`, 'ok');
+  };
+
+  const total = TODAS_SKILLS().length;
+  const ativos = fontes.filter((f) => f.ativo).length;
+
+  return (
+    <>
+      <h2 style={{ fontSize: 19, fontWeight: 900, margin: '0 0 4px' }}>Skills do chat</h2>
+      <p style={{ fontSize: 12.5, color: 'var(--txt-2)', margin: '0 0 16px' }}>
+        As skills são o botão “◈ Skills” dentro do chat de criação (✦ IA). Ligue e desligue as fontes, abra o
+        catálogo de cada plataforma e traga novas skills por link.
+      </p>
+
+      <Bloco titulo="Fontes ligadas no botão de skills">
+        {fontes.map((f) => (
+          <div
+            key={f.id}
+            style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 0', borderBottom: '1px solid var(--line)' }}
+          >
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 12.5, fontWeight: 800 }}>{f.nome}</div>
+              <div style={{ fontSize: 11, color: 'var(--txt-2)' }}>
+                {f.embutidas} skills embutidas ·{' '}
+                <a href={f.site} target="_blank" rel="noreferrer" style={{ color: 'var(--acc)' }}>
+                  abrir catálogo ↗
+                </a>
+              </div>
+            </div>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--txt-1)' }}>
+              <input type="checkbox" checked={f.ativo} onChange={(e) => mexer(f.id, e.target.checked)} />
+              {f.ativo ? 'ligada' : 'desligada'}
+            </label>
+          </div>
+        ))}
+        <div style={{ display: 'flex', gap: 9, alignItems: 'center', marginTop: 14 }}>
+          <button
+            className="btn primary"
+            style={{ padding: '10px 20px', fontWeight: 800 }}
+            onClick={() => {
+              salvarFontesSkills(fontes);
+              toast(`${ativos} fonte(s) ligada(s) · ${total} skills no chat`, 'ok');
+            }}
+          >
+            Salvar fontes
+          </button>
+          <span style={{ fontSize: 12, color: 'var(--txt-2)' }}>{total} skills disponíveis agora no chat</span>
+        </div>
+      </Bloco>
+
+      <Bloco titulo="Adicionar skill por link (qualquer site)">
+        <label style={rotulo}>Link do pacote .zip ou do arquivo .md</label>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <input
+            style={campo}
+            value={link}
+            onChange={(e) => setLink(e.target.value)}
+            placeholder="https://findskill.ai/skills/…/nome.zip"
+          />
+          <button className="btn primary" onClick={() => void importar()} disabled={trazendo} style={{ whiteSpace: 'nowrap' }}>
+            {trazendo ? 'Trazendo…' : 'Adicionar'}
+          </button>
+        </div>
+        <p style={{ fontSize: 11.5, color: 'var(--txt-2)', margin: '8px 0 0' }}>
+          O link é baixado pelo servidor (sem CORS), o SKILL.md é lido e a skill passa a aparecer no botão
+          “Skills” do chat. Vale para findskill.ai, GitHub e qualquer URL pública.
+        </p>
+      </Bloco>
+
+      <Bloco titulo={`Skills adicionadas por link (${importadas.length})`}>
+        {importadas.length === 0 && <p style={{ fontSize: 12, color: 'var(--txt-2)', margin: 0 }}>Nenhuma ainda.</p>}
+        {importadas.map((s) => (
+          <div
+            key={s.id}
+            style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: '1px solid var(--line)' }}
+          >
+            <span style={{ fontSize: 15 }}>{s.emoji}</span>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 12.5, fontWeight: 700 }}>{s.nome}</div>
+              <div style={{ fontSize: 11, color: 'var(--txt-2)' }}>{s.resumo}</div>
+            </div>
+            <button
+              className="btn ghost"
+              style={{ fontSize: 11.5, color: 'var(--err)' }}
+              onClick={() => {
+                removerSkillImportada(s.id);
+                setImportadas(lerSkillsImportadas());
+                toast('Skill removida do chat', 'ok');
+              }}
+            >
+              Remover
+            </button>
+          </div>
+        ))}
+      </Bloco>
+    </>
+  );
+}
+
+/* ---------------- packs do editor (consumo) ---------------- */
+
+function Packs() {
+  const { toast } = useUI();
+  const [uso, setUso] = useState(() => lerUso());
+
+  return (
+    <>
+      <h2 style={{ fontSize: 19, fontWeight: 900, margin: '0 0 4px' }}>Pack do Editor 4.0</h2>
+      <p style={{ fontSize: 12.5, color: 'var(--txt-2)', margin: '0 0 16px' }}>
+        163 packs cadastrados (Drive + espelho no Sync). O sistema guarda só nome e link: a pasta é lida na hora
+        e o arquivo desce sob demanda — nada entra no banco.
+      </p>
+
+      <Bloco titulo="Consumo deste navegador">
+        <div style={{ display: 'flex', gap: 22, fontSize: 12.5, marginBottom: 12 }}>
+          <div>
+            <div style={{ fontSize: 22, fontWeight: 900 }}>{uso.baixados}</div>
+            <div style={{ color: 'var(--txt-2)', fontSize: 11 }}>downloads hoje</div>
+          </div>
+          <div>
+            <div style={{ fontSize: 22, fontWeight: 900 }}>{uso.total}</div>
+            <div style={{ color: 'var(--txt-2)', fontSize: 11 }}>total histórico</div>
+          </div>
+          <div>
+            <div style={{ fontSize: 22, fontWeight: 900 }}>{COTAS.free}/{COTAS.pro}/{COTAS.studio}</div>
+            <div style={{ color: 'var(--txt-2)', fontSize: 11 }}>cota free/pro/studio por dia</div>
+          </div>
+        </div>
+        <button
+          className="btn ghost"
+          onClick={() => {
+            zerarUso();
+            setUso(lerUso());
+            toast('Contador de downloads zerado', 'ok');
+          }}
+        >
+          Zerar contador
+        </button>
+      </Bloco>
+
+      <Bloco titulo="Como o catálogo é entregue">
+        <ul style={{ fontSize: 12, color: 'var(--txt-1)', lineHeight: 1.8, paddingLeft: 18, margin: 0 }}>
+          <li>Nome + link de cada pack ficam no bundle (39 KB) — nada de copiar arquivo para o banco.</li>
+          <li>A pasta do Drive é lida pelo servidor quando o usuário abre o pack; o índice fica 7 dias em cache.</li>
+          <li>O arquivo só é baixado quando o usuário clica em ↓, pelo proxy, e vira asset da biblioteca.</li>
+          <li>
+            Cota por plano (free 5 · pro 60 · studio 300 por dia) para não estourar banda; o espelho no Sync cobre
+            pasta bloqueada.
+          </li>
+          <li>Regenerar o catálogo: <code>python3 packpdf/extrair_catalogo.py</code>.</li>
+        </ul>
+      </Bloco>
     </>
   );
 }

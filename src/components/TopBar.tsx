@@ -82,8 +82,26 @@ export function TopBar({ onImport }: Props) {
       <button className="btn primary" onClick={() => openModal('extrair')} title="Colar link do Drive, extrair de site ou transcrever">
         ⤓ Extrair
       </button>
-      <button className="btn ghost" onClick={() => openModal('studio')} title="Gerar imagem por IA">
+      <button
+        className="btn ghost"
+        onClick={() => openModal('baixatudo')}
+        title="Baixa Tudo — trazer vídeo do YouTube, Instagram, TikTok, Vimeo…"
+      >
+        ⬇ Baixa Tudo
+      </button>
+      <button
+        className="btn ghost"
+        onClick={() => openModal('chatcriacao')}
+        title="Criar por prompt: escolha a skill, anexe a referência do cliente e converse"
+      >
         ✦ IA
+      </button>
+      <button
+        className="btn ghost"
+        onClick={() => openModal('transcricao')}
+        title="Transcrever o áudio do vídeo, criar legendas e narrar com voz"
+      >
+        🎙 Legenda
       </button>
       <button className="btn ghost" onClick={() => openModal('packs')} title="Conteúdo e packs">
         Conteúdo
