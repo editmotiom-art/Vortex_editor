@@ -1,35 +1,28 @@
-# URLs do sistema
+# URLs do Vortex
 
-## 🟢 PRINCIPAL — Netlify (completo, com servidor)
-# https://vortex-editor.netlify.app
+| O que | Endereço |
+|---|---|
+| **Sistema (completo, com servidor)** | https://vortex-editor.netlify.app/ |
+| Espelho estático (GitHub Pages) | https://editmotiom-art.github.io/Vortex_editor/ |
+| Painel administrativo | https://vortex-editor.netlify.app/#admin |
+| Código-fonte | https://github.com/editmotiom-art/Vortex_editor |
 
-Tudo funcionando, incluindo as funções de servidor:
-- Baixar mídia de qualquer site ✅
-- Gerador de IA (quando a chave for configurada) ✅
+## Credenciais
+- **Admin:** `admin` / `vortex2026` → troque em `#admin` → *Acesso do admin*.
+- **Cliente:** crie a conta na própria tela de entrada (e-mail + senha, 6+ caracteres).
 
-### Painel administrativo
-https://vortex-editor.netlify.app/#admin
-`admin` / `vortex2026`
+## Funções de servidor ativas (só no Netlify)
+- `/.netlify/functions/drive?pasta=ID` — índice público das pastas do Drive
+- `/.netlify/functions/proxy?url=...` — baixa mídia bloqueada por CORS (até 200 MB)
+- `/.netlify/functions/minerar` — mídias de uma página da web ("Baixar de site")
+- `/.netlify/functions/ia` — geração de imagem/texto (precisa de `IA_API_KEY` no admin)
 
-## 🔵 Espelho — GitHub Pages
-https://editmotiom-art.github.io/Vortex_editor/
+No espelho do GitHub Pages o editor e os painéis funcionam; as funções de
+servidor (Drive, proxy, IA) só existem no endereço Netlify.
 
-Site estático (sem funções de servidor). Login, editor, biblioteca, XML e export funcionam;
-"Baixar de site" não funciona aqui.
-
-## 📦 Repositório
-https://github.com/editmotiom-art/Vortex_editor
-
-## ⚙️ Painel Netlify
-https://app.netlify.com/projects/vortex-editor
-
----
-
-## Como atualizar o site depois de uma mudança
-
+## Deploy
 ```bash
-npm run build
-NETLIFY_AUTH_TOKEN=SEU_TOKEN npx netlify deploy --prod \
-  --dir=dist --functions=netlify/functions \
-  --site=db536c7f-e5f3-4a7c-aa67-526fef9dac9d
+cd vortex && npm run build
+NETLIFY_AUTH_TOKEN=<token> npx netlify deploy --prod --dir=dist \
+  --functions=netlify/functions --site=db536c7f-e5f3-4a7c-aa67-526fef9dac9d
 ```
