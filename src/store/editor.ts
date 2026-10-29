@@ -79,6 +79,7 @@ interface EditorState {
   applyPreset: (p: keyof typeof PRESETS) => void;
 
   addAsset: (a: Omit<MediaAsset, 'id'>) => MediaAsset;
+  updateAssetDuration: (id: string, durationMs: number) => void;
   removeAsset: (id: string) => void;
 
   addElement: (el: Omit<Element, 'id'>) => string;
@@ -197,6 +198,14 @@ export const useEditor = create<EditorState>((set, get) => ({
     set((s) => ({ doc: { ...s.doc, assets: [...s.doc.assets, asset] } }));
     return asset;
   },
+
+  updateAssetDuration: (id, durationMs) =>
+    set((s) => ({
+      doc: {
+        ...s.doc,
+        assets: s.doc.assets.map((a) => (a.id === id ? { ...a, durationMs } : a)),
+      },
+    })),
 
   removeAsset: (id) => {
     get().commit();

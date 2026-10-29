@@ -40,9 +40,29 @@ export default function App() {
   const { addAsset, doc, setPlaying, playing, setPlayhead, selection, splitSelected, deleteSelected, duplicateSelected, undo, redo, addMarker, setTool, zoom, setZoom, save, setIn, setOut } =
     useEditor();
   const { modal, toasts, toast, sessao, setSessao, openModal } = useUI();
+  const selecao = useEditor((s) => s.selection);
   const loaded = useRef(false);
   const [rota, setRota] = useState<string>(() => location.hash.replace('#', ''));
   const [gaveta, setGaveta] = useState<'lib' | 'insp' | null>(null);
+
+  /* ---------- no celular, selecionar abre as propriedades ---------- */
+  const bloqueioInsp = useRef(0);
+  useEffect(() => {
+    if (Date.now() - bloqueioInsp.current < 900) return; // acabou de vir da biblioteca
+    if (selecao.length > 0 && document.querySelector('.drawer-scrim') === null && window.innerWidth <= 900) {
+      setGaveta('insp');
+    }
+  }, [selecao]);
+
+  /* a biblioteca avisa quando aplicou algo → fecha a gaveta no celular */
+  useEffect(() => {
+    const fechar = () => {
+      bloqueioInsp.current = Date.now();
+      setGaveta(null);
+    };
+    window.addEventListener('vortex:fechar-gaveta', fechar);
+    return () => window.removeEventListener('vortex:fechar-gaveta', fechar);
+  }, []);
 
   /* ---------- rota simples por hash (#admin) ---------- */
   useEffect(() => {

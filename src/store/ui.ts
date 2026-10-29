@@ -12,7 +12,7 @@ export interface Toast {
 interface UIState {
   modal: ModalId;
   toasts: Toast[];
-  sidebarTab: 'library' | 'media' | 'packs';
+  sidebarTab: 'library' | 'media' | 'packs' | 'xml';
   inspectorOpen: boolean;
   user: { name: string; plan: 'free' | 'pro' | 'studio'; avatar: string } | null;
   sessao: Sessao | null;

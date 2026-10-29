@@ -1,10 +1,11 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useEditor } from '../store/editor';
 import { useUI } from '../store/ui';
 import { LIBRARY, LIB_CATEGORIES, PACKS, type LibItem } from '../data/library';
 import { fmtBytes, fmtTime } from '../lib/anim';
 import { uid } from '../types';
 import type { EffectType } from '../types';
+import { BibliotecaXML } from './BibliotecaXML';
 
 interface Props {
   onImport: (files: FileList | File[]) => void;
@@ -16,6 +17,9 @@ function applyLibItem(item: LibItem): void {
   const ed = useEditor.getState();
   const ui = useUI.getState();
   const sel = ed.selection[0];
+
+  /* no celular, a gaveta fecha ao aplicar — o resultado aparece no preview */
+  window.dispatchEvent(new Event('vortex:fechar-gaveta'));
 
   if (item.apply.type === 'media') {
     const pack = PACKS.find((p) => p.id === item.pack);
@@ -120,6 +124,7 @@ function applyLibItem(item: LibItem): void {
 }
 
 export function Sidebar({ onImport, mobileOpen }: Props) {
+  const inputMidia = useRef<HTMLInputElement>(null);
   const { doc, addAsset } = useEditor();
   const { sidebarTab, setSidebarTab, openModal, installedPacks, toast } = useUI();
   const [q, setQ] = useState('');
@@ -192,7 +197,16 @@ export function Sidebar({ onImport, mobileOpen }: Props) {
         <button className={`tab ${sidebarTab === 'packs' ? 'active' : ''}`} onClick={() => setSidebarTab('packs')}>
           ◫ Packs
         </button>
+        <button className={`tab ${sidebarTab === 'xml' ? 'active' : ''}`} onClick={() => setSidebarTab('xml')}>
+          ⤓ XML
+        </button>
       </div>
+
+      {sidebarTab === 'xml' && (
+        <div className="panel-body" style={{ padding: 10 }}>
+          <BibliotecaXML />
+        </div>
+      )}
 
       {sidebarTab === 'library' && (
         <>
@@ -240,9 +254,20 @@ export function Sidebar({ onImport, mobileOpen }: Props) {
       {sidebarTab === 'media' && (
         <>
           <div style={{ padding: 8 }}>
+            <input
+              ref={inputMidia}
+              type="file"
+              multiple
+              accept="video/*,audio/*,image/*"
+              style={{ display: 'none' }}
+              onChange={(e) => {
+                if (e.target.files?.length) onImport(e.target.files);
+                e.target.value = '';
+              }}
+            />
             <div
               className={`dropzone ${dragOver ? 'over' : ''}`}
-              onClick={() => document.querySelector<HTMLInputElement>('input[type=file]')?.click()}
+              onClick={() => inputMidia.current?.click()}
               onDragOver={(e) => {
                 e.preventDefault();
                 setDragOver(true);

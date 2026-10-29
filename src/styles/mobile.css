@@ -327,3 +327,56 @@
   height: 100dvh;
   background: var(--bg-0);
 }
+
+/* ============================================================
+   TELA DE ENTRADA / CADASTRO
+   Desktop: duas colunas · Celular: só o formulário
+   ============================================================ */
+.entrar-wrap {
+  min-height: 100dvh;
+  display: grid;
+  grid-template-columns: 1.05fr 1fr;
+  background: var(--bg-0);
+}
+
+.entrar-form-wrap {
+  display: grid;
+  place-items: center;
+  padding: 40px 28px;
+}
+
+@media (max-width: 900px) {
+  .entrar-wrap {
+    grid-template-columns: 1fr;
+    min-height: 100dvh;
+    align-content: start;
+  }
+
+  /* o painel de apresentação some — o formulário é o que importa */
+  .entrar-lado {
+    display: none !important;
+  }
+
+  .entrar-form-wrap {
+    padding: 26px 20px calc(26px + env(safe-area-inset-bottom));
+    align-items: start;
+  }
+}
+
+/* celular deitado: formulário centralizado, sem apertar */
+@media (max-width: 900px) and (orientation: landscape) {
+  .entrar-form-wrap {
+    align-items: center;
+    padding: 14px 20px;
+  }
+}
+
+/* telas médias (tablet retrato): mantém as duas colunas mas menores */
+@media (min-width: 901px) and (max-width: 1100px) {
+  .entrar-lado {
+    padding: 40px 34px !important;
+  }
+  .entrar-titulo {
+    font-size: 31px !important;
+  }
+}

@@ -46,16 +46,10 @@ export function Entrar({ onEntrar }: Props) {
   };
 
   return (
-    <div
-      style={{
-        minHeight: '100vh',
-        display: 'grid',
-        gridTemplateColumns: '1.05fr 1fr',
-        background: 'var(--bg)',
-      }}
-    >
+    <div className="entrar-wrap">
       {/* ---------- lado esquerdo: apresentação ---------- */}
       <div
+        className="entrar-lado"
         style={{
           padding: '56px 60px',
           display: 'flex',
@@ -74,7 +68,7 @@ export function Entrar({ onEntrar }: Props) {
           </div>
         </div>
 
-        <h1 style={{ fontSize: 40, lineHeight: 1.08, letterSpacing: '-1.4px', margin: '0 0 14px', fontWeight: 900 }}>
+        <h1 className="entrar-titulo" style={{ fontSize: 40, lineHeight: 1.08, letterSpacing: '-1.4px', margin: '0 0 14px', fontWeight: 900 }}>
           Edite vídeo, áudio e
           <br />
           <span style={{ color: 'var(--acc)' }}>motion graphics</span> no navegador.
@@ -91,7 +85,7 @@ export function Entrar({ onEntrar }: Props) {
           ['✦', 'Biblioteca de conteúdo incluída', 'Templates, transições, looks, SFX e overlays.'],
           ['↑', 'Exporte em MP4, WebM ou WAV', 'Presets prontos para Reels, Shorts e YouTube.'],
         ].map(([ico, titulo, sub]) => (
-          <div key={titulo} style={{ display: 'flex', gap: 13, marginBottom: 18 }}>
+          <div key={titulo} className="entrar-item" style={{ display: 'flex', gap: 13, marginBottom: 18 }}>
             <div
               style={{
                 width: 34,
@@ -117,7 +111,7 @@ export function Entrar({ onEntrar }: Props) {
       </div>
 
       {/* ---------- lado direito: formulário ---------- */}
-      <div style={{ display: 'grid', placeItems: 'center', padding: '40px 28px' }}>
+      <div className="entrar-form-wrap">
         <form onSubmit={enviar} style={{ width: '100%', maxWidth: 372 }}>
           <div style={{ fontSize: 22, fontWeight: 900, letterSpacing: '-.6px', marginBottom: 6 }}>
             {modo === 'criar' ? 'Criar sua conta' : 'Entrar no Vortex'}

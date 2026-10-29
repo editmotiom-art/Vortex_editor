@@ -1,6 +1,6 @@
 // netlify/functions/proxy.ts
 var UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36";
-var LIMITE = 80 * 1024 * 1024;
+var LIMITE = 200 * 1024 * 1024;
 var proxy_default = async (req) => {
   const alvo = new URL(req.url).searchParams.get("url") ?? "";
   if (!/^https?:\/\//i.test(alvo)) {
@@ -20,7 +20,7 @@ var proxy_default = async (req) => {
     }
     const tamanho = Number(res.headers.get("content-length") ?? 0);
     if (tamanho > LIMITE) {
-      return new Response("arquivo maior que 80 MB", { status: 413 });
+      return new Response("arquivo maior que 200 MB", { status: 413 });
     }
     return new Response(res.body, {
       status: 200,
