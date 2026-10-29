@@ -1,7 +1,9 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
+// base relativa: funciona em netlify.app, github.io/usuario/repo e localhost
 export default defineConfig({
+  base: './',
   plugins: [react()],
   server: {
     host: '0.0.0.0',
