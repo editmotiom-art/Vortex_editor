@@ -4,6 +4,7 @@ import { useUI } from '../store/ui';
 import { useEditor } from '../store/editor';
 import { lerPasta } from '../lib/driveIndex';
 import type { ItemDrive } from '../lib/driveIndex';
+import { urlFuncao } from '../lib/api';
 import {
   COTAS,
   abrirPastaPack,
@@ -142,7 +143,7 @@ export function PacksMonkey() {
     }
     setBaixando(item.id);
     try {
-      const url = `/.netlify/functions/proxy?url=${encodeURIComponent(linkDownloadDrive(item.id))}`;
+      const url = `${urlFuncao('proxy')}?url=${encodeURIComponent(linkDownloadDrive(item.id))}`;
       const res = await fetch(url);
       if (!res.ok) throw new Error(`servidor respondeu ${res.status}`);
       const blob = await res.blob();

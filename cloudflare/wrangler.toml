@@ -1,0 +1,12 @@
+# Vortex API — Cloudflare Worker (plano gratuito: 100 mil requisições/dia)
+name = "vortex-api"
+main = "dist/index.js"
+compatibility_date = "2026-01-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Coloque as chaves do painel como variável (opcional — sem elas o sistema usa o
+# motor grátis e o Google TTS):
+#   npx wrangler secret put IA_API_KEY
+#   npx wrangler secret put IA_PROVEDOR
+[vars]
+VERSAO = "2026-10-29"

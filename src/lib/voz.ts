@@ -15,6 +15,7 @@
 import { useEditor } from '../store/editor';
 import { useUI } from '../store/ui';
 import { lerConfig } from './config';
+import { chamarFuncao } from './api';
 import type { MediaAsset } from '../types';
 
 export interface Voz {
@@ -79,7 +80,7 @@ export async function gerarAudioVoz(op: OpcoesVoz): Promise<{ url: string; durac
   const velocidade = op.velocidade ?? cfg.voz?.velocidade ?? 1;
 
   try {
-    const r = await fetch('/.netlify/functions/ferramentas', {
+    const r = await chamarFuncao('ferramentas', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({

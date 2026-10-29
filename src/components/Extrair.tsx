@@ -8,6 +8,7 @@ import {
 } from '../lib/driveIndex';
 import { fmtBytes } from '../lib/anim';
 import { transcreverParaTimeline, transcricaoDisponivel } from '../lib/transcricao';
+import { chamarFuncao, urlFuncao } from '../lib/api';
 
 /**
  * EXTRAIR CONTEÚDO — link do Drive, página da web ou arquivos
@@ -65,7 +66,7 @@ export function Extrair() {
     setOcupado(true);
     setItens([]);
     try {
-      const res = await fetch(`/.netlify/functions/minerar`, {
+      const res = await chamarFuncao('minerar', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ url: urlSite }),

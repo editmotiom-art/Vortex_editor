@@ -11,6 +11,7 @@
 
 import type { SkillExterna } from '../data/skillsExternas';
 import { fonteDoLink } from '../components/SkillsChat';
+import { chamarFuncao } from './api';
 
 const K = 'vortex.skillsWeb.v1';
 
@@ -56,7 +57,7 @@ export interface ResultadoImportacao {
  */
 export async function adicionarSkillDoLink(url: string): Promise<ResultadoImportacao> {
   try {
-    const r = await fetch('/.netlify/functions/ferramentas', {
+    const r = await chamarFuncao('ferramentas', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ acao: 'skill', url }),

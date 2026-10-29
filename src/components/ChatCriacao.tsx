@@ -3,6 +3,7 @@ import { useUI } from '../store/ui';
 import { useEditor } from '../store/editor';
 import { lerConfig } from '../lib/config';
 import { gerarImagemGratis, roteiroLocal, type FonteImagem } from '../lib/imagemGratis';
+import { chamarFuncao } from '../lib/api';
 import { SkillsChat, TODAS_SKILLS, type SkillEscolhida } from './SkillsChat';
 
 /**
@@ -148,7 +149,7 @@ export function ChatCriacao({ aoFechar }: { aoFechar?: () => void }) {
     setPedido('');
     setOcupado(true);
     try {
-      const res = await fetch('/.netlify/functions/ferramentas', {
+      const res = await chamarFuncao('ferramentas', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({

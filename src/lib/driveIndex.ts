@@ -1,6 +1,7 @@
 import { useEditor } from '../store/editor';
 import { useUI } from '../store/ui';
 import { identityTransform } from '../types';
+import { urlFuncao } from './api';
 
 /**
  * ÍNDICE DO DRIVE
@@ -41,7 +42,7 @@ export const tipoDe = (nome: string): TipoMidia => {
  * busca o arquivo no servidor e devolve com CORS liberado.
  */
 export const streamDrive = (id: string) =>
-  `/.netlify/functions/proxy?url=${encodeURIComponent(
+  `${urlFuncao('proxy')}?url=${encodeURIComponent(
     `https://drive.usercontent.google.com/download?id=${id}&export=download&confirm=t`,
   )}`;
 
@@ -57,7 +58,7 @@ export async function lerPasta(
   pastaId: string,
   pastaNome: string,
 ): Promise<{ arquivos: ItemDrive[]; pastas: { id: string; nome: string }[] }> {
-  const r = await fetch(`${FN}?pasta=${encodeURIComponent(pastaId)}`);
+  const r = await fetch(`${urlFuncao('drive')}?pasta=${encodeURIComponent(pastaId)}`);
   const dados = (await r.json()) as RespostaDrive;
   if (!dados.ok) throw new Error(dados.erro ?? 'falha ao ler a pasta');
   const arquivos = (dados.arquivos ?? []).map<ItemDrive>((a) => ({

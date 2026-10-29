@@ -21,12 +21,14 @@ import { lerFontesSkills, salvarFontesSkills, type FonteSkill } from '../lib/fon
 import { adicionarSkillDoLink, lerSkillsImportadas, removerSkillImportada } from '../lib/skillsImportadas';
 import { TODAS_SKILLS } from './SkillsChat';
 import { COTAS, lerUso, zerarUso } from '../lib/packsMonkeyPlan';
+import { baseApi, lerSaudeApi, testarApi } from '../lib/api';
+import { chamarFuncao, urlFuncao } from '../lib/api';
 
 /* ============================================================
    PAINEL ADMINISTRATIVO
    ============================================================ */
 
-type Aba = 'visao' | 'contas' | 'planos' | 'ia' | 'voz' | 'skills' | 'packs' | 'pagamento' | 'acesso' | 'marca' | 'midia' | 'sistema';
+type Aba = 'visao' | 'contas' | 'planos' | 'ia' | 'voz' | 'skills' | 'packs' | 'api' | 'pagamento' | 'acesso' | 'marca' | 'midia' | 'sistema';
 
 const campo: React.CSSProperties = {
   width: '100%',
@@ -116,6 +118,7 @@ export function Admin({ onSair }: { onSair: () => void }) {
             ['voz', 'Voz e narração'],
             ['skills', 'Skills do chat'],
             ['packs', 'Pack do Editor'],
+            ['api', 'API e hospedagem'],
             ['acesso', 'Acesso do admin'],
             ['marca', 'App e marca'],
             ['midia', 'Acervo e mídia'],
@@ -169,6 +172,7 @@ export function Admin({ onSair }: { onSair: () => void }) {
         {aba === 'voz' && <Voz />}
         {aba === 'skills' && <Skills />}
         {aba === 'packs' && <Packs />}
+        {aba === 'api' && <Api />}
         {aba === 'acesso' && <Acesso />}
         {aba === 'marca' && <Marca />}
         {aba === 'midia' && <AcervoAdmin />}
@@ -707,7 +711,7 @@ function IA() {
               gravarConfig(config);
               setResultado('Testando o gerador de texto…');
               try {
-                const r = await fetch('/.netlify/functions/ferramentas', {
+                const r = await chamarFuncao('ferramentas', {
                   method: 'POST',
                   headers: { 'content-type': 'application/json' },
                   body: JSON.stringify({
@@ -767,7 +771,7 @@ function IA() {
               return;
             }
             setResultado(
-              'Pronto para gerar. A chamada real usa a função de servidor (netlify/functions/ia.ts) para não expor a chave — configure a variável IA_API_KEY na Netlify.',
+              'Pronto para gerar. A chamada real usa a função de servidor (ia) para não expor a chave — configure IA_API_KEY na Netlify ou no Cloudflare Worker (Admin → Sistema).',
             );
           }}
         >
@@ -1074,7 +1078,7 @@ function Voz() {
     setTocando(true);
     setTeste('');
     try {
-      const r = await fetch('/.netlify/functions/ferramentas', {
+      const r = await chamarFuncao('ferramentas', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
@@ -1370,6 +1374,101 @@ function Packs() {
             pasta bloqueada.
           </li>
           <li>Regenerar o catálogo: <code>python3 packpdf/extrair_catalogo.py</code>.</li>
+        </ul>
+      </Bloco>
+    </>
+  );
+}
+
+
+/* ---------------- API e hospedagem ---------------- */
+
+function Api() {
+  const { toast } = useUI();
+  const [config, setConfig] = useState<Config>(lerConfig());
+  const [url, setUrl] = useState(baseApi());
+  const [teste, setTeste] = useState<{ ok: boolean; msg: string } | null>(null);
+  const [testando, setTestando] = useState(false);
+  const saude = lerSaudeApi();
+
+  const salvar = () => {
+    const limpa = url.trim().replace(/\/+$/, '');
+    gravarConfig({ ...config, api: { url: limpa, ativo: true } });
+    setTeste({ ok: true, msg: limpa ? 'API salva — o editor passa a usá-la' : 'Voltou a usar a Netlify' });
+    toast('Endereço da API salvo', 'ok');
+  };
+
+  const testar = async () => {
+    setTestando(true);
+    const r = await testarApi(url.trim());
+    setTeste({ ok: r.ok, msg: r.ok ? `API respondeu (versão ${r.versao ?? '—'})` : `Não respondeu: ${r.erro ?? 'sem detalhe'}` });
+    setTestando(false);
+  };
+
+  return (
+    <>
+      <h2 style={{ fontSize: 19, fontWeight: 900, margin: '0 0 4px' }}>API e hospedagem</h2>
+      <p style={{ fontSize: 12.5, color: 'var(--txt-2)', margin: '0 0 16px' }}>
+        O editor precisa de 5 funções de servidor: <b>drive</b>, <b>proxy</b>, <b>ferramentas</b> (voz, texto e
+        skills), <b>ia</b> e <b>minerar</b>. Elas podem rodar na Netlify (mesma origem, nada a configurar) ou em
+        qualquer host que fale HTTP — o Cloudflare Worker já está pronto em <code>cloudflare/</code>.
+      </p>
+
+      <Bloco
+        titulo="Endereço da API"
+        desc="Vazio = usa a Netlify do próprio site. Preenchido = usa este endereço e, se ele cair, volta sozinho para a Netlify."
+      >
+        <label style={rotulo}>URL da API (Worker, Vercel ou servidor próprio)</label>
+        <div style={{ display: 'flex', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
+          <input
+            style={{ ...campo, flex: 1, minWidth: 240 }}
+            value={url}
+            onChange={(e) => setUrl(e.target.value)}
+            placeholder="https://vortex-api.seunome.workers.dev"
+          />
+          <button className="btn primary" onClick={salvar} style={{ whiteSpace: 'nowrap' }}>
+            Salvar
+          </button>
+          <button className="btn ghost" onClick={() => void testar()} disabled={testando} style={{ whiteSpace: 'nowrap' }}>
+            {testando ? 'Testando…' : 'Testar /api/ping'}
+          </button>
+        </div>
+        {teste && (
+          <p style={{ fontSize: 12, color: teste.ok ? 'var(--ok)' : 'var(--warn)', margin: 0 }}>
+            {teste.ok ? '✓' : '⚠'} {teste.msg}
+          </p>
+        )}
+        {saude && (
+          <p style={{ fontSize: 11, color: 'var(--txt-2)', margin: '6px 0 0' }}>
+            Última verificação: {new Date(saude.em).toLocaleString('pt-BR')} ·{' '}
+            {saude.ok ? `ok (${saude.versao ?? '—'})` : `falhou (${saude.erro ?? '—'})`}
+          </p>
+        )}
+      </Bloco>
+
+      <Bloco titulo="Como publicar o Worker grátis (Cloudflare)" desc="100 mil requisições/dia no plano gratuito — mais que suficiente para começar.">
+        <ol style={{ fontSize: 12, lineHeight: 1.9, paddingLeft: 18, margin: 0, color: 'var(--txt-1)' }}>
+          <li>Instale o Wrangler: <code>npm i -g wrangler</code></li>
+          <li>Entre na conta (grátis): <code>wrangler login</code></li>
+          <li>
+            No projeto: <code>cd cloudflare &amp;&amp; npm install &amp;&amp; npm run deploy</code>
+          </li>
+          <li>
+            Copie a URL que aparece (<code>https://vortex-api.SEUNOME.workers.dev</code>) e cole no campo acima.
+          </li>
+          <li>
+            (Opcional) Chaves de IA no Worker: <code>wrangler secret put IA_API_KEY</code>
+          </li>
+        </ol>
+      </Bloco>
+
+      <Bloco titulo="O que cada função faz">
+        <ul style={{ fontSize: 12, lineHeight: 1.8, paddingLeft: 18, margin: 0, color: 'var(--txt-1)' }}>
+          <li><b>drive</b> — lê pastas públicas do Google Drive (acervo e Pack do Editor).</li>
+          <li><b>proxy</b> — baixa arquivo de outro site com CORS liberado.</li>
+          <li><b>ferramentas</b> — voz (MP3), gerador de texto grátis e importação de skills.</li>
+          <li><b>ia</b> — imagem/texto com a chave do painel (opcional).</li>
+          <li><b>minerar</b> — acha imagens/vídeos em uma página.</li>
         </ul>
       </Bloco>
     </>

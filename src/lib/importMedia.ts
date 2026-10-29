@@ -8,6 +8,7 @@
  * O arquivo vira um blob na memória do navegador: nada passa pelo nosso banco.
  */
 
+import { chamarFuncao, urlFuncao } from './api';
 export interface RemoteItem {
   url: string;
   type?: 'video' | 'audio' | 'image' | string;
@@ -152,12 +153,12 @@ export interface MineracaoResult {
 
 /** URL do proxy de arquivos */
 export const proxyUrl = (url: string): string =>
-  `/.netlify/functions/proxy?url=${encodeURIComponent(url)}`;
+  `${urlFuncao('proxy')}?url=${encodeURIComponent(url)}`;
 
 /** pede ao servidor para ler uma página e devolver as mídias dela */
 export async function minerarSite(url: string): Promise<MineracaoResult> {
   try {
-    const res = await fetch('/.netlify/functions/minerar', {
+    const res = await chamarFuncao('minerar', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ url }),

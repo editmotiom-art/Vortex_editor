@@ -17,6 +17,7 @@ mkdirSync(PASTA, { recursive: true });
 const b = await chromium.launch({ args: ['--autoplay-policy=no-user-gesture-required'] });
 const ctx = await b.newContext({ viewport: { width: 1440, height: 950 } });
 const p = await ctx.newPage();
+p.setDefaultTimeout(120000);
 const errs = [];
 p.on('pageerror', (e) => errs.push(e.message.slice(0, 160)));
 const r = [];

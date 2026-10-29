@@ -1,0 +1,14 @@
+{
+  "name": "vortex-api",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs",
+    "dev": "node build.mjs && wrangler dev",
+    "deploy": "node build.mjs && wrangler deploy"
+  },
+  "devDependencies": {
+    "wrangler": "^3.90.0",
+    "esbuild": "^0.21.5"
+  }
+}

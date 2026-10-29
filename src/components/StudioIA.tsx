@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useUI } from '../store/ui';
 import { useEditor } from '../store/editor';
 import { lerConfig } from '../lib/config';
+import { chamarFuncao, urlFuncao } from '../lib/api';
 
 /**
  * ESTÚDIO DE IA — gerar imagem/vídeo por texto direto no editor
@@ -42,7 +43,7 @@ export function StudioIA({ aoFechar }: { aoFechar?: () => void }) {
     setPrevia(null);
     try {
       const completo = estilo ? `${prompt}. ${estilo}` : prompt;
-      const res = await fetch('/.netlify/functions/ia', {
+      const res = await chamarFuncao('ia', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ tipo: 'imagem', prompt: completo, tamanho }),

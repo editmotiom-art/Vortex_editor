@@ -42,6 +42,13 @@ export interface ConfigVoz {
   velocidade: number;
 }
 
+/** API de funções (Cloudflare Worker, Vercel, servidor próprio). Vazio = Netlify. */
+export interface ConfigApi {
+  url: string;
+  /** usa automaticamente a API configurada; desligado volta para a Netlify */
+  ativo: boolean;
+}
+
 export interface ConfigPagamento {
   provedor: 'nenhum' | 'mercadopago' | 'stripe' | 'manual';
   chavePublica: string;
@@ -70,6 +77,7 @@ export interface Config {
   admin: { usuario: string; senhaHash: string; sal: string };
   ia: ConfigIA;
   voz: ConfigVoz;
+  api: ConfigApi;
   pagamento: ConfigPagamento;
   planos: Plano[];
   manutencao: boolean;
@@ -116,6 +124,7 @@ const PADRAO: Config = {
     baseUrl: '',
     textoGratuito: true,
   },
+  api: { url: '', ativo: true },
   voz: {
     ativo: true,
     provedor: 'google',
