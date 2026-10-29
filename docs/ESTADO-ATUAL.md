@@ -49,3 +49,46 @@ Teste real (`tall7.mjs`) com um clipe WebM de 6 s, uma música e um texto:
 - Extensão do navegador: não existe código dela no repositório; para embarcar é preciso o arquivo/zip.
 - IA em produção precisa de `IA_API_KEY` nas variáveis de ambiente da Netlify.
 - GitHub Pages: espelho em `pages/` (não copiar o build para a raiz).
+
+---
+
+# Rodada 2 (29/10, noite)
+
+## 1. Tela preta ao dar play — resolvido
+Causa: o `<video>` do compositor fica **sem frame decodificado** enquanto busca o tempo pedido
+(`currentTime` muda e o elemento fica "vazio"), então o canvas desenhava vazio — e nada pedia redesenho depois.
+Correções em `src/lib/renderer.ts` + `src/components/Preview.tsx`:
+- só busca o tempo quando `readyState >= 2`;
+- `MediaCache.someLoading()` + `onReady()` (eventos `loadeddata/seeked/canplay`);
+- o preview se redesenha sozinho (até 240 frames) enquanto faltar frame.
+Medido: canvas 100% com cor **tocando e pausado** (antes: 0 em pausa).
+
+## 2. Arquivo importado já entra no editor
+`importFiles` (topo, bandeja, drag&drop, Ctrl+V) agora cria o **clipe na timeline** além do asset.
+`Extrair`: botão `▸ n na timeline` e `▸` por item (`baixarParaEditor(item, true)`).
+XML solto em qualquer lugar → `vortex:xml-soltos` é lido no App (não depende da aba XML aberta),
+salvo na biblioteca e já abre a aba XML. Teste: 1 XML → 1 card → clique → **6 clipes**.
+
+## 3. Arrastar e soltar no celular — bandeja universal (`SoltarUniversal.tsx`)
+- Desktop: continua o drag&drop global.
+- Celular: bandeja fixa "Arraste arquivos para cá / Escolher arquivos" (recolhível, começa recolhida em telas estreitas).
+- Um toque na mídia da sidebar também manda para a timeline (celular não tem duplo clique).
+
+## 4. Página de vendas + responsabilidade (`Landing.tsx`, rota inicial)
+- Hero, 6 recursos reais, 3 passos, **planos vindos do admin** (Free / R$ 29,90 / R$ 79,90) e
+  seção "Responsabilidade e uso" (arquivos, direitos, acervo, privacidade, disponibilidade, assinatura).
+- `#planos` e `#responsabilidade` como âncoras; a tela de entrada ganhou "← voltar para a apresentação".
+
+## 5. Modo computador no celular
+- Barra superior virou faixa rolável (`overflow-x:auto`, botões `flex:0 0 auto`).
+- Novo alternador **Biblioteca / Propriedades / Exportar** (`.gaveta-switch`) sempre visível em telas estreitas.
+- Rolagem horizontal zero: landing e editor medidos em 390 px → `scrollWidth - innerWidth = 0`.
+- Toasts passaram para o topo no celular; bandeja e aviso de girar não se cobrem mais.
+
+## 6. Extensão (pendente de acesso)
+A pasta do Drive `1ru9t29GUltdb-VGnCEgnUUbTFY1CH7M5` responde **401 / Sign-in**: não é pública.
+Para o sistema puxar sozinho, compartilhar como "Qualquer pessoa com o link". Alternativa: enviar o `.crx`/`.zip`.
+
+## Validação final (produção, `tall12.mjs`)
+landing ✓ 3 planos ✓ 6 blocos de responsabilidade ✓ tema claro ✓ bandeja ✓ importar → 1 clipe na timeline ✓
+canvas tocando 1200/3600 amostrados e **pausado 1200/3600** ✓ celular: overflow 0 ✓ sem erros de JS.

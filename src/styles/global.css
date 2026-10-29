@@ -1978,3 +1978,16 @@ img, video, canvas { max-width: 100%; }
   .bandeja, .bandeja-abrir { z-index: 73; }
   .rotate-hint { z-index: 74; bottom: 118px; }
 }
+
+/* em telas estreitas o botão da bandeja fica acima do dock, sem cobrir avisos */
+@media (max-width: 980px) {
+  .bandeja-abrir {
+    bottom: 78px;
+    left: 10px;
+    right: auto;
+    font-size: 10.5px;
+    padding: 7px 10px;
+  }
+  .bandeja { bottom: 78px; }
+  .rotate-hint { bottom: 130px; background: var(--bg-1) !important; }
+}

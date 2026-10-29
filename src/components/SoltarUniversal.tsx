@@ -14,7 +14,12 @@ import { useEffect, useRef, useState } from 'react';
  */
 
 export function SoltarUniversal({ onArquivos }: { onArquivos: (arqs: File[]) => void }) {
-  const [recolhida, setRecolhida] = useState(() => localStorage.getItem('vortex.bandeja') === 'oculta');
+  const [recolhida, setRecolhida] = useState(() => {
+    const salvo = localStorage.getItem('vortex.bandeja');
+    if (salvo) return salvo === 'oculta';
+    // no celular a bandeja começa recolhida: só o botão, sem cobrir a timeline
+    return window.matchMedia('(max-width: 980px)').matches;
+  });
   const [sobre, setSobre] = useState(false);
   const [contagem, setContagem] = useState(0);
   const input = useRef<HTMLInputElement>(null);
