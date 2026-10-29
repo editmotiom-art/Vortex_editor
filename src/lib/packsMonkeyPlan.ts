@@ -36,6 +36,23 @@ export const COTAS: Record<Plano, number> = { free: 5, pro: 60, studio: 300 };
 
 const hoje = () => new Date().toISOString().slice(0, 10);
 
+/**
+ * Tipo “útil” de um arquivo: o editor só consegue abrir vídeo, áudio e imagem.
+ * Zip, aep, psd, plugin e fonte NÃO abrem na timeline — o botão certo é abrir
+ * o link da pasta no Drive e baixar no computador.
+ */
+export const tipoUtil = (nome: string): 'video' | 'audio' | 'image' | 'outro' => {
+  const ext = (nome.toLowerCase().split('.').pop() ?? '').trim();
+  if (['mp4', 'mov', 'webm', 'mkv', 'm4v', 'avi'].includes(ext)) return 'video';
+  if (['mp3', 'wav', 'ogg', 'm4a', 'aac', 'flac'].includes(ext)) return 'audio';
+  if (['png', 'jpg', 'jpeg', 'webp', 'gif', 'avif', 'svg'].includes(ext)) return 'image';
+  return 'outro';
+};
+
+/** link direto de download no Google Drive (funciona para arquivos grandes) */
+export const linkDownloadDrive = (id: string) =>
+  `https://drive.usercontent.google.com/download?id=${id}&export=download&confirm=t`;
+
 export const lerUso = (): UsoPacks => {
   try {
     const u = JSON.parse(localStorage.getItem(K_USO) ?? 'null') as UsoPacks | null;

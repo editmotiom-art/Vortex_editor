@@ -41,7 +41,9 @@ export const tipoDe = (nome: string): TipoMidia => {
  * busca o arquivo no servidor e devolve com CORS liberado.
  */
 export const streamDrive = (id: string) =>
-  `/.netlify/functions/proxy?url=${encodeURIComponent(`https://drive.usercontent.google.com/download?id=${id}&export=download`)}`;
+  `/.netlify/functions/proxy?url=${encodeURIComponent(
+    `https://drive.usercontent.google.com/download?id=${id}&export=download&confirm=t`,
+  )}`;
 
 interface RespostaDrive {
   ok: boolean;

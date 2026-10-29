@@ -15,6 +15,8 @@ import {
   lerPastaAberta,
   lerUso,
   linkAlternativo,
+  linkDownloadDrive,
+  tipoUtil,
   podeBaixar,
   registrarDownload,
 } from '../lib/packsMonkeyPlan';
@@ -52,6 +54,7 @@ export function PacksMonkey() {
   const [subpastas, setSubpastas] = useState<{ id: string; nome: string }[]>([]);
   const [carregando, setCarregando] = useState(false);
   const [erroPasta, setErroPasta] = useState('');
+  const [trilhaNomes, setTrilha] = useState<string[]>([]);
   const [baixando, setBaixando] = useState<string | null>(null);
   const [uso, setUso] = useState(() => lerUso());
 
@@ -104,6 +107,23 @@ export function PacksMonkey() {
         arquivos: arqs.map((a) => ({ id: a.id, nome: a.nome, tipo: a.tipo })),
         pastas,
       });
+      // a maioria dos packs tem só subpastas na raiz: entra na primeira
+      // para o usuário já ver arquivos (e poder baixar)
+      if (!arqs.length && pastas.length) {
+        setTrilha([p.nome]);
+        const { arquivos: a2, pastas: p2 } = await lerPasta(pastas[0].id, pastas[0].nome);
+        setArquivos(a2);
+        setSubpastas(p2);
+        setTrilha([p.nome, pastas[0].nome]);
+        gravarCachePasta({
+          id: pastas[0].id,
+          em: Date.now(),
+          arquivos: a2.map((a) => ({ id: a.id, nome: a.nome, tipo: a.tipo })),
+          pastas: p2,
+        });
+      } else {
+        setTrilha([p.nome]);
+      }
     } catch (e) {
       setErroPasta((e as Error).message);
     } finally {
@@ -122,9 +142,7 @@ export function PacksMonkey() {
     }
     setBaixando(item.id);
     try {
-      const url = `/.netlify/functions/proxy?url=${encodeURIComponent(
-        `https://drive.usercontent.google.com/download?id=${item.id}&export=download`,
-      )}`;
+      const url = `/.netlify/functions/proxy?url=${encodeURIComponent(linkDownloadDrive(item.id))}`;
       const res = await fetch(url);
       if (!res.ok) throw new Error(`servidor respondeu ${res.status}`);
       const blob = await res.blob();
@@ -151,7 +169,9 @@ export function PacksMonkey() {
 
   /* ---------------- pasta aberta ---------------- */
   if (aberto) {
-    const util = arquivos.filter((a) => a.tipo !== 'outro');
+    // o que o editor abre de verdade (vídeo/áudio/imagem); zip/aep/psd → Drive
+    const util = arquivos.filter((a) => tipoUtil(a.nome) !== 'outro');
+    const paraDrive = arquivos.length - util.length;
     return (
       <div className="pk">
         <div className="pk-topo">
@@ -167,12 +187,27 @@ export function PacksMonkey() {
           <b>{aberto.nome}</b>
           <span className="pk-selo">{aberto.secao}</span>
           <div className="spacer" />
+          {aberto.drive && (
+            <a className="btn ghost sm" href={aberto.drive} target="_blank" rel="noreferrer" title="Abrir a pasta no Google Drive">
+              ↗ Drive
+            </a>
+          )}
+          {linkAlternativo(aberto) && (
+            <a className="btn ghost sm" href={linkAlternativo(aberto)!} target="_blank" rel="noreferrer" title="Espelho no Sync">
+              ↗ Sync
+            </a>
+          )}
           <span className="pk-cota">
             {uso.baixados}/{cotas} hoje
           </span>
         </div>
 
         {carregando && <div className="pk-aviso">Lendo a pasta no Drive…</div>}
+        {paraDrive > 0 && util.length > 0 && (
+          <div className="pk-aviso">
+            {paraDrive} arquivo(s) de instalação abrem pelo link ↗ (o editor carrega {util.length} de mídia).
+          </div>
+        )}
         {erroPasta && (
           <div className="pk-aviso erro">
             {erroPasta} —{' '}
@@ -197,6 +232,7 @@ export function PacksMonkey() {
                       const { arquivos: arqs, pastas } = await lerPasta(sp.id, sp.nome);
                       setArquivos(arqs);
                       setSubpastas(pastas);
+                      setTrilha((t) => [...t, sp.nome]);
                     } catch (e) {
                       toast((e as Error).message, 'err');
                     } finally {
@@ -208,6 +244,22 @@ export function PacksMonkey() {
                 ▸ {sp.nome}
               </button>
             ))}
+          </div>
+        )}
+
+        {util.length === 0 && arquivos.length > 0 && (
+          <div className="pk-aviso">
+            Esta pasta tem {arquivos.length} arquivo(s) para instalar no After Effects/Premiere (zip, aep, psd,
+            plugins). Abra a pasta no Drive para baixar no computador — o editor só coloca na timeline vídeo,
+            áudio e imagem.
+            {idDaPasta(aberto) && (
+              <>
+                {' '}
+                <a href={aberto.drive} target="_blank" rel="noreferrer">
+                  abrir a pasta no Drive ↗
+                </a>
+              </>
+            )}
           </div>
         )}
 
@@ -235,9 +287,21 @@ export function PacksMonkey() {
               <span className="pk-nome" title={a.nome}>
                 {a.nome}
               </span>
-              <button className="btn ghost sm" disabled={baixando === a.id} onClick={() => void baixar(a)}>
-                {baixando === a.id ? '…' : '↓'}
-              </button>
+              {tipoUtil(a.nome) === 'outro' ? (
+                <a
+                  className="btn ghost sm"
+                  href={linkDownloadDrive(a.id)}
+                  target="_blank"
+                  rel="noreferrer"
+                  title="Baixar no computador (formato de instalação)"
+                >
+                  ↗
+                </a>
+              ) : (
+                <button className="btn ghost sm" disabled={baixando === a.id} onClick={() => void baixar(a)}>
+                  {baixando === a.id ? '…' : '↓'}
+                </button>
+              )}
             </div>
           ))}
         </div>
