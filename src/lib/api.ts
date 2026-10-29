@@ -88,3 +88,16 @@ export async function chamarFuncao(caminho: string, init?: RequestInit): Promise
   }
   return fetch(netlify, init);
 }
+
+/**
+ * Deixa a sessão de testes/produção coerente com a URL configurada.
+ * (O painel já faz isso ao salvar; aqui é o mesmo efeito, para scripts e testes.)
+ */
+export const aplicarApiSalva = (): void => {
+  const url = baseApi();
+  const saude = lerSaudeApi();
+  // nada a fazer além de garantir que a saúde antiga não engane o painel
+  if (!url && saude && !/netlify/.test(saude.versao ?? '') && saude.ok) {
+    localStorage.removeItem(K_SAUDE);
+  }
+};

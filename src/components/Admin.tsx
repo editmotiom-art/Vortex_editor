@@ -1394,6 +1394,7 @@ function Api() {
   const salvar = () => {
     const limpa = url.trim().replace(/\/+$/, '');
     gravarConfig({ ...config, api: { url: limpa, ativo: true } });
+    setConfig({ ...config, api: { url: limpa, ativo: true } });
     setTeste({ ok: true, msg: limpa ? 'API salva — o editor passa a usá-la' : 'Voltou a usar a Netlify' });
     toast('Endereço da API salvo', 'ok');
   };
