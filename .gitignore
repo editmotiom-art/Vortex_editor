@@ -54,3 +54,6 @@ derivados/
 *.rar
 *.zip
 !public/**/*.svg
+# runtime local da Vercel (gerado por vercel-dev.mjs)
+.vercel-dev/
+.vercel/

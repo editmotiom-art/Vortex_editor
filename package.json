@@ -10,7 +10,9 @@
     "preview": "vite preview --host 0.0.0.0 --port 4173",
     "typecheck": "tsc --noEmit",
     "serve": "node netlify/dev-server.mjs 8888",
-    "local": "npm run build && node netlify/dev-server.mjs 8888"
+    "local": "npm run build && node netlify/dev-server.mjs 8888",
+    "vercel:dev": "npm run build && node vercel-dev.mjs 3001",
+    "vercel:api": "node vercel-dev.mjs 3001"
   },
   "dependencies": {
     "@huggingface/transformers": "^3.8.1",

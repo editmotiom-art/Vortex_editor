@@ -29,23 +29,49 @@ export const API_ESPELHO = 'https://vortex-editor.netlify.app';
 export const noEspelho = (): boolean =>
   typeof location !== 'undefined' && /(^|\.)github\.io$/.test(location.hostname);
 
+/**
+ * Tipos de servidor:
+ *  · ''                → Netlify, mesma origem (/.netlify/functions/…)
+ *  · '.'               → Vercel/estático, mesma origem (/api/…)
+ *  · URL qualquer      → Worker/servidor próprio (/api/…)
+ */
+export const API_MESMA_ORIGEM_VERCEL = '.';
+
 /** base é um Worker/servidor (rotas /api/…) em vez da Netlify (/.netlify/functions/…) */
-const baseEhWorker = (b: string): boolean => /workers\.dev|\/api$/.test(b) || !/netlify\.app$/.test(b);
+const baseEhWorker = (b: string): boolean => {
+  if (b === API_MESMA_ORIGEM_VERCEL) return true;
+  if (/netlify\.(app|com)$/.test(b)) return false;
+  return /workers\.dev|\/api$/.test(b) || !/netlify\.app$/.test(b);
+};
 
 /** caminho completo de uma função dentro de uma base */
 export const caminhoEm = (base: string, nome: string): string => {
   if (!base) return `${PREFIXO_NETLIFY}/${nome}`;
+  if (base === API_MESMA_ORIGEM_VERCEL) return `/api/${nome}`;
   return baseEhWorker(base) ? `${base}/api/${nome}` : `${base}${PREFIXO_NETLIFY}/${nome}`;
 };
+
+/**
+ * Host com API própria na mesma origem: Vercel (functions /api/*) e servidor
+ * local de desenvolvimento. No espelho estático (github.io) e em qualquer outro
+ * host, o editor aponta para a API remota.
+ */
+export const apiNaMesmaOrigem = (): boolean =>
+  typeof location !== 'undefined' &&
+  (/\.vercel\.app$/.test(location.hostname) ||
+    /^(localhost|127\.0\.0\.1|\[::1\]|0\.0\.0\.0)$/.test(location.hostname));
 
 /** base configurada (ex.: https://vortex-api.seunome.workers.dev) ou '' */
 export const baseApi = (): string => {
   const doPainel = (lerConfig().api?.url ?? '').trim();
-  // espelho estático (GitHub Pages) não roda função → usa a API da Netlify
-  if (noEspelho()) return (doPainel || API_ESPELHO).replace(/\/+$/, '');
+  // Vercel (ou dev local): as funções estão na mesma origem, em /api/…
+  if (doPainel) return doPainel.replace(/\/+$/, '');
+  if (apiNaMesmaOrigem()) return API_MESMA_ORIGEM_VERCEL;
+  // espelho estático (GitHub Pages) não roda função → usa a API remota
+  if (noEspelho()) return API_ESPELHO;
   const env = (import.meta as unknown as { env?: Record<string, string> }).env ?? {};
   const doBuild = (env.VITE_API_REMOTA ?? env.VITE_API_URL ?? '').trim();
-  return (doPainel || doBuild).replace(/\/+$/, '');
+  return doBuild.replace(/\/+$/, '');
 };
 
 /** URL final de uma função (drive, proxy, ferramentas, ia, minerar) */
@@ -78,6 +104,23 @@ export const lerSaudeApi = (): SaudeApi | null => {
 
 /** testa /api/ping da API configurada (usado no painel) */
 export const testarApi = async (url = baseApi()): Promise<SaudeApi> => {
+  if (url === API_MESMA_ORIGEM_VERCEL) {
+    try {
+      const res = await fetch('/api/ping', { signal: AbortSignal.timeout(15000) });
+      const dados = (await res.json().catch(() => ({}))) as { ok?: boolean; versao?: string; host?: string };
+      const r: SaudeApi = {
+        em: Date.now(),
+        ok: Boolean(res.ok && dados.ok),
+        versao: `${dados.host ?? 'mesma origem'} ${dados.versao ?? ''}`.trim(),
+      };
+      localStorage.setItem(K_SAUDE, JSON.stringify(r));
+      return r;
+    } catch (e) {
+      const r: SaudeApi = { em: Date.now(), ok: false, erro: (e as Error).message };
+      localStorage.setItem(K_SAUDE, JSON.stringify(r));
+      return r;
+    }
+  }
   if (!url) {
     const r: SaudeApi = { em: Date.now(), ok: true, versao: 'netlify (mesma origem)' };
     localStorage.setItem(K_SAUDE, JSON.stringify(r));
@@ -85,7 +128,7 @@ export const testarApi = async (url = baseApi()): Promise<SaudeApi> => {
   }
   try {
     const b = url.replace(/\/+$/, '');
-    const alvo = baseEhWorker(b)
+    const alvo = b === API_MESMA_ORIGEM_VERCEL ? '/api/ping' : baseEhWorker(b)
       ? `${b}/api/ping`
       : `${b}${PREFIXO_NETLIFY}/drive?pasta=17NI-W43qk9jb5rzARXLnAAMahqrYZVWu`;
     const res = await fetch(alvo, { signal: AbortSignal.timeout(20000) });
@@ -118,6 +161,15 @@ export async function chamarFuncao(caminho: string, init?: RequestInit): Promise
   const reserva = `${API_ESPELHO}${PREFIXO_NETLIFY}/${caminho}`;
   if (base === API_ESPELHO) return fetch(reserva, init);
   if (!base) return fetch(`${PREFIXO_NETLIFY}/${caminho}`, init);
+  if (base === API_MESMA_ORIGEM_VERCEL) {
+    try {
+      const res = await fetch(`/api/${caminho}`, init);
+      if (res.status < 500) return res;
+    } catch {
+      /* API local fora → reserva remota */
+    }
+    return fetch(reserva, init);
+  }
   try {
     const res = await fetch(caminhoEm(base, caminho), init);
     if (res.status < 500) return res;

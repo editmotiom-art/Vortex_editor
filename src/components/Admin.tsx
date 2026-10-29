@@ -1411,13 +1411,14 @@ function Api() {
       <h2 style={{ fontSize: 19, fontWeight: 900, margin: '0 0 4px' }}>API e hospedagem</h2>
       <p style={{ fontSize: 12.5, color: 'var(--txt-2)', margin: '0 0 16px' }}>
         O editor precisa de 5 funções de servidor: <b>drive</b>, <b>proxy</b>, <b>ferramentas</b> (voz, texto e
-        skills), <b>ia</b> e <b>minerar</b>. Elas podem rodar na Netlify (mesma origem, nada a configurar) ou em
-        qualquer host que fale HTTP — o Cloudflare Worker já está pronto em <code>cloudflare/</code>.
+        skills), <b>ia</b> e <b>minerar</b>. Elas rodam na <b>Vercel</b> (<code>/api/…</code>, mesma origem), na
+        Netlify (<code>/.netlify/functions/…</code>) ou no Cloudflare Worker (<code>cloudflare/</code>) — o editor
+        detecta o host sozinho e, se a API cair, usa a reserva.
       </p>
 
       <Bloco
         titulo="Endereço da API"
-        desc="Vazio = usa a Netlify do próprio site. Preenchido = usa este endereço e, se ele cair, volta sozinho para a Netlify."
+        desc="Vazio = usa o servidor do próprio site (Vercel /api/…, Netlify /.netlify/functions/…). Preenchido = usa este endereço e, se ele cair, volta sozinho para a reserva."
       >
         <label style={rotulo}>URL da API (Worker, Vercel ou servidor próprio)</label>
         <div style={{ display: 'flex', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
@@ -1447,7 +1448,19 @@ function Api() {
         )}
       </Bloco>
 
-      <Bloco titulo="Como publicar o Worker grátis (Cloudflare)" desc="100 mil requisições/dia no plano gratuito — mais que suficiente para começar.">
+      <Bloco
+        titulo="Vercel (recomendado)"
+        desc="Site e funções no mesmo lugar: o repositório já está conectado, cada push publica sozinho."
+      >
+        <ol style={{ fontSize: 12, lineHeight: 1.9, paddingLeft: 18, margin: 0, color: 'var(--txt-1)' }}>
+          <li>Importe o repositório na Vercel (framework <b>Vite</b>, build <code>npm run build</code>, saída <code>dist</code>).</li>
+          <li>As funções em <code>api/</code> são detectadas automaticamente em <code>/api/drive</code>, <code>/api/proxy</code>, <code>/api/ferramentas</code>, <code>/api/ia</code> e <code>/api/minerar</code>.</li>
+          <li>(Opcional) Em <i>Settings → Environment Variables</i>: <code>IA_API_KEY</code>, <code>ELEVENLABS_KEY</code>, <code>GOOGLE_TTS_KEY</code>.</li>
+          <li>Deixe o campo acima <b>vazio</b> — o editor usa <code>/api/ping</code> do próprio domínio.</li>
+        </ol>
+      </Bloco>
+
+      <Bloco titulo="Cloudflare Worker (plano B grátis)" desc="100 mil requisições/dia no plano gratuito — mais que suficiente para começar.">
         <ol style={{ fontSize: 12, lineHeight: 1.9, paddingLeft: 18, margin: 0, color: 'var(--txt-1)' }}>
           <li>Instale o Wrangler: <code>npm i -g wrangler</code></li>
           <li>Entre na conta (grátis): <code>wrangler login</code></li>
