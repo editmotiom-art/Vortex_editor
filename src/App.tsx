@@ -5,6 +5,8 @@ import { Preview } from './components/Preview';
 import { Inspector } from './components/Inspector';
 import { Timeline } from './components/Timeline';
 import { ExportModal, PacksModal, ShortcutsModal, AccountModal } from './components/Modals';
+import { ImportModal } from './components/ImportModal';
+import type { ImportedMedia } from './lib/importMedia';
 import { useEditor } from './store/editor';
 import { useUI } from './store/ui';
 import type { MediaAsset } from './types';
@@ -68,6 +70,25 @@ export default function App() {
       if (n) toast(`${n} arquivo(s) importado(s) — estão na aba "Mídia"`, 'ok');
     },
     [addAsset, toast],
+  );
+
+  /* ---------- importação remota (extensão / link) ---------- */
+  const importRemote = useCallback(
+    (medias: ImportedMedia[]) => {
+      for (const m of medias) {
+        addAsset({
+          name: m.name,
+          kind: m.kind,
+          url: m.url,
+          durationMs: m.durationMs,
+          width: m.width,
+          height: m.height,
+          origin: 'user',
+          sizeBytes: m.sizeBytes,
+        });
+      }
+    },
+    [addAsset],
   );
 
   /* ---------- carrega projeto salvo no primeiro render ---------- */
@@ -219,6 +240,7 @@ export default function App() {
       </div>
 
       {modal === 'export' && <ExportModal />}
+      {modal === 'import' && <ImportModal onImported={importRemote} />}
       {modal === 'packs' && <PacksModal />}
       {modal === 'shortcuts' && <ShortcutsModal />}
       {modal === 'account' && <AccountModal />}

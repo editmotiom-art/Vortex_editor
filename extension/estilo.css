@@ -1,0 +1,17 @@
+:root{--azul:#2f6bff;--roxo:#8a3ffc;--rosa:#c14bff;--bg1:#0b1026;--bg2:#140a2e;--card:rgba(255,255,255,.06);--borda:rgba(255,255,255,.12);--texto:#eef1ff;--texto2:#aab3d6;--verde:#19c37d;--erro:#ff7b7b}
+*{box-sizing:border-box}
+body{margin:0;font:14px "Segoe UI",system-ui,sans-serif;color:var(--texto);background:radial-gradient(circle at 0 0,rgba(138,63,252,.35),transparent 60%),linear-gradient(160deg,var(--bg1),var(--bg2))}
+h1{margin:0;font-size:18px}
+.sub{color:var(--texto2);font-size:12px;margin:2px 0 0}
+.topo{display:flex;gap:10px;align-items:center;margin-bottom:12px}
+.topo img{width:36px;height:36px}
+.card{background:var(--card);border:1px solid var(--borda);border-radius:16px;padding:12px}
+label{display:block;font-size:12px;color:var(--texto2);margin:10px 0 4px}
+input[type=text],input[type=url],select{width:100%;padding:10px;border-radius:10px;border:1px solid var(--borda);background:rgba(0,0,0,.3);color:var(--texto);font-size:13px}
+select option{background:#1a1838}
+.btn{width:100%;margin-top:12px;padding:12px;border:0;border-radius:12px;color:#fff;font-weight:700;font-size:15px;cursor:pointer;background:linear-gradient(135deg,var(--azul),var(--roxo),var(--rosa));box-shadow:0 6px 18px rgba(138,63,252,.35)}
+.btn:disabled{opacity:.6;cursor:wait}
+.chave{display:flex;align-items:center;gap:8px;margin-top:10px;font-size:13px;cursor:pointer}
+.rodape{text-align:center;color:var(--texto2);font-size:11px;margin-top:12px}
+.rodape a{color:#8fb0ff}
+[hidden]{display:none!important}

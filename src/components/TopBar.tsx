@@ -69,6 +69,9 @@ export function TopBar({ onImport }: Props) {
       <button className="btn" onClick={() => fileRef.current?.click()}>
         Importar
       </button>
+      <button className="btn ghost" onClick={() => openModal('import')} title="Importar de link ou extensão">
+        Mídia web
+      </button>
       <button className="btn ghost" onClick={() => openModal('packs')} title="Conteúdo e packs">
         Conteúdo
       </button>
