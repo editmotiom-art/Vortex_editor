@@ -41,8 +41,10 @@ export const caminhoEm = (base: string, nome: string): string => {
 /** base configurada (ex.: https://vortex-api.seunome.workers.dev) ou '' */
 export const baseApi = (): string => {
   const doPainel = (lerConfig().api?.url ?? '').trim();
+  // espelho estático (GitHub Pages) não roda função → usa a API da Netlify
+  if (noEspelho()) return (doPainel || API_ESPELHO).replace(/\/+$/, '');
   const env = (import.meta as unknown as { env?: Record<string, string> }).env ?? {};
-  const doBuild = (env.VITE_API_URL ?? '').trim();
+  const doBuild = (env.VITE_API_REMOTA ?? env.VITE_API_URL ?? '').trim();
   return (doPainel || doBuild).replace(/\/+$/, '');
 };
 
