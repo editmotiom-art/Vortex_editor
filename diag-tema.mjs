@@ -1,0 +1,14 @@
+import { chromium } from 'playwright';
+const b = await chromium.launch();
+const ctx = await b.newContext({ viewport: { width: 1400, height: 900 } });
+const p = await ctx.newPage();
+p.on('pageerror', e => console.log('pageerror', e.message));
+await p.goto('http://127.0.0.1:8890', { waitUntil: 'domcontentloaded' });
+console.log('antes do app:', await p.evaluate(() => document.documentElement.getAttribute('data-theme')));
+await p.waitForTimeout(1500);
+console.log('depois:', await p.evaluate(() => document.documentElement.getAttribute('data-theme')));
+console.log('bg body:', await p.evaluate(() => getComputedStyle(document.body).backgroundColor));
+console.log('localStorage.tema:', await p.evaluate(() => localStorage.getItem('vortex.tema')));
+console.log('tem login:', await p.locator('text=Criar sua conta').first().isVisible().catch(()=>false));
+console.log('html classes:', await p.evaluate(() => document.documentElement.outerHTML.slice(0, 300)));
+await b.close();

@@ -601,7 +601,7 @@ export async function adicionarNaTimeline(preset: Preset, nome: string, loop = f
 
   /* já entra numa trilha de áudio livre, no playhead */
   const trilha =
-    ed.doc.tracks.find((t) => t.kind === 'audio' && !t.locked) ?? ed.doc.tracks.find((t) => t.kind === 'audio');
+    ed.trilhaPara('audio');
   if (trilha) {
     ed.addElement({
       type: 'audio',

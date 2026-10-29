@@ -246,6 +246,8 @@ export function BibliotecaXML({ onAplicar }: { onAplicar?: () => void }) {
             {filtrados.slice(0, 300).map((t) => (
               <div
                 key={t.id}
+                onClick={() => aplicar(t)}
+                title={`Abrir “${t.nome}” no editor`}
                 style={{
                   border: '1px solid var(--line)',
                   borderRadius: 9,
@@ -256,7 +258,6 @@ export function BibliotecaXML({ onAplicar }: { onAplicar?: () => void }) {
                 }}
               >
                 <div
-                  onClick={() => aplicar(t)}
                   style={{
                     height: 74,
                     background: `linear-gradient(135deg,${t.cor[0]},${t.cor[1]})`,
@@ -282,6 +283,16 @@ export function BibliotecaXML({ onAplicar }: { onAplicar?: () => void }) {
                   <div style={{ fontSize: 9.5, color: 'var(--txt-2)', marginTop: 2 }}>
                     {fmtTime(t.duracaoMs)} · {t.elementos} elem · {t.largura}×{t.altura}
                   </div>
+                  <button
+                    className="btn primary sm"
+                    style={{ width: '100%', marginTop: 5, fontSize: 10, padding: '4px 6px' }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      aplicar(t);
+                    }}
+                  >
+                    ▸ Abrir no editor
+                  </button>
                 </div>
                 <button
                   onClick={(e) => {

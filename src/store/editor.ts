@@ -101,6 +101,7 @@ interface EditorState {
   rippleDelete: () => void;
 
   addTrack: (kind: 'video' | 'audio') => void;
+  trilhaPara: (tipo: 'video' | 'image' | 'audio' | 'text' | 'shape') => Track | undefined;
   removeTrack: (id: string) => void;
   patchTrack: (id: string, patch: Partial<Track>) => void;
 
@@ -226,14 +227,21 @@ export const useEditor = create<EditorState>((set, get) => ({
       elements.some(
         (e) => e.trackId === trackId && e.start < end && e.start + e.duration > el.start,
       );
+    /** mídia/formas nunca devem ficar na trilha reservada a texto */
+    const ehTrilhaTexto = (id: string) => tracksRef().find((t) => t.id === id)?.name.startsWith('Texto') ?? false;
+    const tracksRef = () => st.doc.tracks;
 
-    // escolhe a trilha: a pedida, se livre; senão a primeira livre; senão cria
+    // escolhe a trilha: a pedida, se livre; senão a mais adequada livre; senão cria
     let tracks = st.doc.tracks;
     let trackId = el.trackId;
-    if (overlaps(trackId, st.doc.elements)) {
-      const free = tracks.find((t) => t.kind === kind && !overlaps(t.id, st.doc.elements));
-      if (free) {
-        trackId = free.id;
+    const proibida = el.type !== 'text' && ehTrilhaTexto(trackId);
+    if (proibida || overlaps(trackId, st.doc.elements)) {
+      const compativeis = tracks.filter(
+        (t) => t.kind === kind && (el.type === 'text' || !t.name.startsWith('Texto')),
+      );
+      const livre = compativeis.find((t) => !overlaps(t.id, st.doc.elements));
+      if (livre) {
+        trackId = livre.id;
       } else {
         const count = tracks.filter((t) => t.kind === kind).length + 1;
         const nt = makeTrack(`${kind === 'video' ? 'Vídeo' : 'Áudio'} ${count}`, kind);
@@ -253,7 +261,7 @@ export const useEditor = create<EditorState>((set, get) => ({
   addText: (content = 'Seu texto aqui', at) => {
     const playhead = at ?? get().playhead;
     const { doc } = get();
-    const track = doc.tracks.find((t) => t.name.startsWith('Texto')) ?? doc.tracks.find((t) => t.kind === 'video')!;
+    const track = get().trilhaPara('text')!;
     return get().addElement({
       type: 'text',
       name: content.slice(0, 24),
@@ -288,7 +296,7 @@ export const useEditor = create<EditorState>((set, get) => ({
   addShape: (kind = 'rect', at) => {
     const playhead = at ?? get().playhead;
     const { doc } = get();
-    const track = doc.tracks.find((t) => t.kind === 'video')!;
+    const track = get().trilhaPara('shape')!;
     return get().addElement({
       type: 'shape',
       name: kind === 'rect' ? 'Retângulo' : 'Elipse',
@@ -505,6 +513,17 @@ export const useEditor = create<EditorState>((set, get) => ({
         ),
       },
     }));
+  },
+
+  /** trilha adequada para um tipo de elemento (mídia nunca cai na trilha de texto) */
+  trilhaPara: (tipo: 'video' | 'image' | 'audio' | 'text' | 'shape') => {
+    const tracks = get().doc.tracks;
+    const candidatas = tracks.filter((t) => (tipo === 'audio' ? t.kind === 'audio' : t.kind === 'video'));
+    if (tipo === 'audio') return candidatas[candidatas.length - 1] ?? tracks.find((t) => t.kind === 'audio');
+    if (tipo === 'text') return tracks.find((t) => t.name.startsWith('Texto')) ?? candidatas[candidatas.length - 1];
+    // mídia/forma: nunca a trilha de texto; preferir a mais baixa (Vídeo 1)
+    const semTexto = candidatas.filter((t) => !t.name.startsWith('Texto'));
+    return semTexto[semTexto.length - 1] ?? candidatas[candidatas.length - 1];
   },
 
   addTrack: (kind) => {

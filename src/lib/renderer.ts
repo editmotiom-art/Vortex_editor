@@ -159,10 +159,13 @@ export function renderFrame(
           const sw = src instanceof HTMLVideoElement ? src.videoWidth : src.naturalWidth;
           const sh = src instanceof HTMLVideoElement ? src.videoHeight : src.naturalHeight;
           if (sw && sh) {
-            // cover: cobre o canvas lógico mantendo proporção
+            // Ajuste automático: nunca deixa tarja preta e nunca passa de 1.35×
+            // (mídia muito mais estreita que o quadro fica contida, com fundo).
             const targetW = doc.settings.width * sx;
             const targetH = doc.settings.height * sy;
-            const k = Math.max(targetW / sw, targetH / sh);
+            const kCover = Math.max(targetW / sw, targetH / sh);
+            const kContain = Math.min(targetW / sw, targetH / sh);
+            const k = kCover / kContain > 1.35 ? kContain : kCover;
             const dw = sw * k;
             const dh = sh * k;
             try {

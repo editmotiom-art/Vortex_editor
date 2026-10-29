@@ -5,6 +5,7 @@ import { mudarPlano, sair as sairConta } from '../lib/contas';
 import { PACKS } from '../data/library';
 import { CatalogoDrive } from './PacksDrive';
 import { EXPORT_PRESETS, exportVideo, exportAudio, exportFrame, download, exportProjectJson } from '../lib/exporter';
+import { useMemo } from 'react';
 import { fmtBytes, fmtTime } from '../lib/anim';
 import { docDuration } from '../lib/renderer';
 
@@ -37,12 +38,19 @@ export function ExportModal() {
   const [progress, setProgress] = useState(0);
   const [label, setLabel] = useState('');
   const [busy, setBusy] = useState(false);
+  /** resultado do último export, para prévia antes de baixar */
+  const [pronto, setPronto] = useState<{ url: string; tipo: 'video' | 'imagem' | 'audio'; nome: string; bytes: number } | null>(null);
+  const mp4Ok = useMemo(() => {
+    const v = document.createElement('video');
+    return Boolean(v.canPlayType('video/mp4; codecs="avc1.42E01E"'));
+  }, []);
 
   const preset = EXPORT_PRESETS.find((p) => p.id === presetId)!;
   const total = docDuration(doc);
 
   const runVideo = async () => {
     if (busy) return;
+    const extFinal = format === 'mp4' && mp4Ok ? 'mp4' : 'webm';
     setBusy(true);
     setProgress(0);
     try {
@@ -58,8 +66,13 @@ export function ExportModal() {
           setLabel(l);
         },
       });
-      download(blob, `${doc.name.replace(/\s+/g, '_')}_${preset.w}x${preset.h}.${format}`);
-      toast(`Exportado: ${fmtBytes(blob.size)}`, 'ok');
+      setPronto({
+        url: URL.createObjectURL(blob),
+        tipo: 'video',
+        nome: `${doc.name.replace(/\s+/g, '_')}_${preset.w}x${preset.h}.${extFinal}`,
+        bytes: blob.size,
+      });
+      toast(`Pronto: ${fmtBytes(blob.size)} — confira a prévia e baixe`, 'ok');
     } catch (e) {
       toast(`Falha no export: ${(e as Error).message}`, 'err');
     } finally {
@@ -74,8 +87,13 @@ export function ExportModal() {
         setProgress(p);
         setLabel(l);
       });
-      download(blob, `${doc.name.replace(/\s+/g, '_')}_audio.wav`);
-      toast('Áudio exportado em WAV', 'ok');
+      setPronto({
+        url: URL.createObjectURL(blob),
+        tipo: 'audio',
+        nome: `${doc.name.replace(/\s+/g, '_')}_audio.wav`,
+        bytes: blob.size,
+      });
+      toast('Áudio pronto — confira a prévia e baixe', 'ok');
     } catch (e) {
       toast((e as Error).message, 'err');
     } finally {
@@ -86,8 +104,13 @@ export function ExportModal() {
   const runFrame = async () => {
     try {
       const blob = await exportFrame(doc, useEditor.getState().playhead, preset.w, preset.h);
-      download(blob, `${doc.name.replace(/\s+/g, '_')}_frame.png`);
-      toast('Frame exportado em PNG', 'ok');
+      setPronto({
+        url: URL.createObjectURL(blob),
+        tipo: 'imagem',
+        nome: `${doc.name.replace(/\s+/g, '_')}_frame.png`,
+        bytes: blob.size,
+      });
+      toast('Frame pronto — confira a prévia e baixe', 'ok');
     } catch (e) {
       toast((e as Error).message, 'err');
     }
@@ -120,7 +143,9 @@ export function ExportModal() {
           <div className="export-row">
             <span>Formato</span>
             <select className="sel-input" style={{ width: 110 }} value={format} onChange={(e) => setFormat(e.target.value as 'webm' | 'mp4')}>
-              <option value="mp4">MP4 (H.264)</option>
+              <option value="mp4" disabled={!mp4Ok}>
+                MP4 (H.264){!mp4Ok ? ' — indisponível aqui' : ''}
+              </option>
               <option value="webm">WebM (VP9)</option>
             </select>
           </div>
@@ -172,6 +197,36 @@ export function ExportModal() {
         </div>
 
         <div>
+          {pronto ? (
+            <div className="card exp-previa" style={{ marginBottom: 10 }}>
+              <h4>Prévia do arquivo</h4>
+              {pronto.tipo === 'video' && <video src={pronto.url} controls playsInline />}
+              {pronto.tipo === 'imagem' && <img src={pronto.url} alt="Prévia do frame exportado" />}
+              {pronto.tipo === 'audio' && <audio src={pronto.url} controls />}
+              <div className="exp-previa-info">
+                {pronto.nome} · {fmtBytes(pronto.bytes)}
+              </div>
+              <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                <button
+                  className="btn primary sm"
+                  style={{ flex: 1 }}
+                  onClick={async () => {
+                    const blob = await fetch(pronto.url).then((r) => r.blob());
+                    download(blob, pronto.nome);
+                  }}
+                >
+                  ⬇ Baixar este arquivo
+                </button>
+                <a className="btn ghost sm" href={pronto.url} target="_blank" rel="noreferrer">
+                  Abrir
+                </a>
+              </div>
+              <div className="hint" style={{ marginTop: 8 }}>
+                Nada foi baixado ainda. Se a prévia estiver do jeito que você quer, clique em baixar.
+              </div>
+            </div>
+          ) : (
+          <div>
           <div className="card" style={{ marginBottom: 10 }}>
             <h4>Como o export funciona</h4>
             <p>
@@ -194,6 +249,8 @@ export function ExportModal() {
               <br />· Mantenha a aba em primeiro plano durante o export (o navegador limita timers em segundo plano).
             </p>
           </div>
+          </div>
+          )}
         </div>
       </div>
     </Modal>

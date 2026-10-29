@@ -177,3 +177,58 @@ export async function baixarVarios(itens: ItemDrive[], limite = 12): Promise<num
   for (const it of itens.slice(0, limite)) if (await baixarParaEditor(it)) ok += 1;
   return ok;
 }
+
+/* ============================================================
+   EXTRAIR POR URL — o usuário cola um link do Drive e o sistema
+   varre a pasta inteira (com subpastas) e lista tudo.
+   ============================================================ */
+
+/** aceita /folders/ID, ?id=ID, /d/ID ou o ID puro */
+export function idDeLinkDrive(link: string): string | null {
+  const t = link.trim();
+  if (/^[a-zA-Z0-9_-]{20,}$/.test(t)) return t;
+  const m =
+    t.match(/\/folders\/([a-zA-Z0-9_-]{10,})/) ||
+    t.match(/[?&]id=([a-zA-Z0-9_-]{10,})/) ||
+    t.match(/\/d\/([a-zA-Z0-9_-]{10,})/);
+  return m ? m[1] : null;
+}
+
+export interface ExtracaoUrl {
+  arquivos: ItemDrive[];
+  pastas: number;
+  falhas: string[];
+  idRaiz: string;
+}
+
+/**
+ * Lê uma pasta (e até 2 níveis de subpastas) a partir de um link colado.
+ * Devolve todos os arquivos encontrados, prontos para baixar em massa.
+ */
+export async function extrairDeUrl(
+  link: string,
+  aoProgredir?: (p: { pasta: string; lidas: number; arquivos: number }) => void,
+): Promise<ExtracaoUrl> {
+  const id = idDeLinkDrive(link);
+  if (!id) throw new Error('link do Drive inválido — cole o endereço da pasta');
+
+  const arquivos: ItemDrive[] = [];
+  const falhas: string[] = [];
+  const fila: { id: string; nome: string; nivel: number }[] = [{ id, nome: 'Pasta colada', nivel: 0 }];
+  let lidas = 0;
+
+  while (fila.length && lidas < 60) {
+    const pasta = fila.shift()!;
+    aoProgredir?.({ pasta: pasta.nome, lidas, arquivos: arquivos.length });
+    try {
+      const { arquivos: arqs, pastas } = await lerPasta(pasta.id, pasta.nome);
+      arquivos.push(...arqs);
+      lidas += 1;
+      if (pasta.nivel < 2) for (const s of pastas.slice(0, 12)) fila.push({ ...s, nivel: pasta.nivel + 1 });
+    } catch {
+      falhas.push(pasta.nome);
+    }
+  }
+
+  return { arquivos, pastas: lidas, falhas, idRaiz: id };
+}

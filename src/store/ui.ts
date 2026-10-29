@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { sessaoAtual, type Sessao } from '../lib/contas';
 
-export type ModalId = 'export' | 'packs' | 'shortcuts' | 'account' | 'import' | 'checkout' | 'ia' | 'xml' | 'cliente' | null;
+export type ModalId = 'export' | 'packs' | 'shortcuts' | 'account' | 'import' | 'checkout' | 'ia' | 'xml' | 'cliente' | 'extrair' | 'studio' | null;
 
 export interface Toast {
   id: string;
@@ -13,6 +13,7 @@ interface UIState {
   modal: ModalId;
   toasts: Toast[];
   sidebarTab: 'library' | 'media' | 'packs' | 'xml';
+  tema: 'escuro' | 'claro';
   inspectorOpen: boolean;
   user: { name: string; plan: 'free' | 'pro' | 'studio'; avatar: string; email?: string } | null;
   sessao: Sessao | null;
@@ -23,6 +24,7 @@ interface UIState {
   toast: (msg: string, tone?: Toast['tone']) => void;
   dismiss: (id: string) => void;
   setSidebarTab: (t: UIState['sidebarTab']) => void;
+  setTema: (t: 'escuro' | 'claro') => void;
   setUser: (u: UIState['user']) => void;
   setSessao: (s: Sessao | null) => void;
   installPack: (id: string) => void;
@@ -34,6 +36,7 @@ export const useUI = create<UIState>((set, get) => ({
   modal: null,
   toasts: [],
   sidebarTab: 'library',
+  tema: (localStorage.getItem('vortex.tema') as 'escuro' | 'claro') ?? 'claro',
   inspectorOpen: true,
   user: sessaoInicial
     ? { name: sessaoInicial.nome, plan: sessaoInicial.plano, avatar: (sessaoInicial.nome[0] ?? 'V').toUpperCase(), email: sessaoInicial.email }
@@ -52,6 +55,12 @@ export const useUI = create<UIState>((set, get) => ({
   dismiss: (id) => set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })),
 
   setSidebarTab: (t) => set({ sidebarTab: t }),
+
+  setTema: (t) => {
+    localStorage.setItem('vortex.tema', t);
+    document.documentElement.setAttribute('data-theme', t === 'claro' ? 'light' : 'dark');
+    set({ tema: t });
+  },
   setUser: (u) => set({ user: u }),
   setSessao: (s) =>
     set({

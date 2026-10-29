@@ -6,6 +6,9 @@ import { Inspector } from './components/Inspector';
 import { Timeline } from './components/Timeline';
 import { ExportModal, PacksModal, ShortcutsModal, AccountModal } from './components/Modals';
 import { PainelCliente } from './components/PainelCliente';
+import { Extrair } from './components/Extrair';
+import { DropGlobal } from './components/DropGlobal';
+import { StudioIA } from './components/StudioIA';
 import { ImportModal } from './components/ImportModal';
 import { ImportarXML } from './components/ImportarXML';
 import { Entrar } from './components/Entrar';
@@ -66,6 +69,19 @@ export default function App() {
     return () => window.removeEventListener('vortex:fechar-gaveta', fechar);
   }, []);
 
+  /* aviso de girar: uma vez dispensado, não volta */
+  useEffect(() => {
+    if (localStorage.getItem('vortex.hintGirar')) {
+      (document.querySelector('.rotate-hint') as HTMLElement | null)?.classList.add('oculto');
+    }
+  }, []);
+
+  /* ---------- tema (claro/escuro) já aplicado no boot ---------- */
+  useEffect(() => {
+    const salvo = (localStorage.getItem('vortex.tema') as 'escuro' | 'claro') ?? 'claro';
+    document.documentElement.setAttribute('data-theme', salvo === 'claro' ? 'light' : 'dark');
+  }, []);
+
   /* ---------- rota simples por hash (#admin) ---------- */
   useEffect(() => {
     const onHash = () => setRota(location.hash.replace('#', ''));
@@ -118,11 +134,115 @@ export default function App() {
     [addAsset, toast],
   );
 
+  /* trilha de teste (usada pelos testes automatizados do export) */
+  useEffect(() => {
+    const w = window as unknown as { __vortexTeste: unknown; __vortexDoc: unknown };
+    w.__vortexDoc = () => {
+      const d = useEditor.getState().doc;
+      return {
+        settings: d.settings,
+        tracks: d.tracks.map((t) => ({ id: t.id, kind: t.kind, name: t.name, hidden: t.hidden })),
+        elements: d.elements.map((e) => ({
+          id: e.id, type: e.type, name: e.name, trackId: e.trackId,
+          start: e.start, duration: e.duration, x: e.transform.x.base, y: e.transform.y.base,
+          scale: e.transform.scale.base,
+        })),
+      };
+    };
+    w.__vortexTeste = async (opts?: { video?: boolean; texto?: boolean; audio?: boolean }) => {
+      const lig = { video: true, texto: true, audio: true, ...(opts ?? {}) };
+      const ed = useEditor.getState();
+      const lerDuracao = (url: string, kind: 'video' | 'audio') =>
+        new Promise<number>((resolve) => {
+          const m = document.createElement(kind);
+          m.src = url;
+          m.addEventListener('loadedmetadata', () => resolve(Math.round((m.duration || 0) * 1000)));
+          m.addEventListener('error', () => resolve(0));
+        });
+      const vUrl = '/midia/clipe.webm';
+      const aUrl = '/midia/musica.mp3';
+      const vDur = await lerDuracao(vUrl, 'video');
+      const aDur = await lerDuracao(aUrl, 'audio');
+      const v = ed.addAsset({ name: 'clipe.webm', kind: 'video', url: vUrl, durationMs: vDur || 6000, origin: 'user' });
+      const a = ed.addAsset({ name: 'musica.mp3', kind: 'audio', url: aUrl, durationMs: aDur || 8000, origin: 'user' });
+      const tv = useEditor.getState().trilhaPara('video')!;
+      const ta = useEditor.getState().trilhaPara('audio')!;
+      if (lig.video) useEditor.getState().addElement({
+        type: 'video',
+        name: 'clipe.webm',
+        trackId: tv.id,
+        start: 0,
+        duration: 3000,
+        sourceIn: 0,
+        assetId: v.id,
+        transform: identityTransform(),
+        blend: 'normal',
+        effects: [],
+        volume: 1,
+        locked: false,
+        hidden: false,
+        color: '#22d3ee',
+      });
+      if (lig.texto) useEditor.getState().addElement({
+        type: 'text',
+        name: 'Título de teste',
+        trackId: tv.id,
+        start: 0,
+        duration: 2000,
+        sourceIn: 0,
+        transform: identityTransform(),
+        blend: 'normal',
+        effects: [],
+        text: {
+          content: 'VORTEX',
+          fontFamily: 'Inter, sans-serif',
+          fontSize: 120,
+          fontWeight: 900,
+          color: '#ffffff',
+          align: 'center',
+          strokeColor: '#000000',
+          strokeWidth: 0,
+          shadow: true,
+          letterSpacing: 2,
+          uppercase: true,
+        },
+        volume: 1,
+        locked: false,
+        hidden: false,
+        color: '#f472b6',
+      });
+      if (lig.audio) useEditor.getState().addElement({
+        type: 'audio',
+        name: 'musica.mp3',
+        trackId: ta.id,
+        start: 0,
+        duration: 3000,
+        sourceIn: 0,
+        assetId: a.id,
+        transform: identityTransform(),
+        blend: 'normal',
+        effects: [],
+        volume: 0.8,
+        locked: false,
+        hidden: false,
+        color: '#34d399',
+      });
+      useEditor.getState().setPlayhead(0);
+      return { vDur, aDur, assets: useEditor.getState().doc.assets.length, elements: useEditor.getState().doc.elements.length };
+    };
+  }, []);
+
+  /* assets disponíveis para a transcrição */
+  const todosAssets = useEditor((s) => s.doc.assets);
+  useEffect(() => {
+    (window as unknown as { __vortexAssets?: unknown }).__vortexAssets = todosAssets;
+  }, [todosAssets]);
+
   /* ---------- ações em massa na mídia ---------- */
   const adicionarTodaMidia = useCallback(() => {
     const ed = useEditor.getState();
-    const trilha = ed.doc.tracks.find((t) => t.kind === 'video');
-    const trilhaAudio = ed.doc.tracks.find((t) => t.kind === 'audio');
+    const trilha = ed.trilhaPara('video');
+    const trilhaAudio = ed.trilhaPara('audio');
     let t = ed.playhead;
     let n = 0;
     for (const a of ed.doc.assets) {
@@ -339,6 +459,19 @@ export default function App() {
     <div className="app">
       <TopBar onImport={importFiles} />
 
+      <DropGlobal
+        onArquivos={(arqs) => {
+          const xmls = arqs.filter((f) => /\.xml$/i.test(f.name));
+          const midias = arqs.filter((f) => !/\.xml$/i.test(f.name));
+          if (midias.length) void importFiles(midias);
+          if (xmls.length) {
+            /* XML solto: manda para a biblioteca de templates */
+            window.dispatchEvent(new CustomEvent('vortex:xml-soltos', { detail: xmls }));
+            toast(`${xmls.length} XML(s) recebidos — abra a aba XML para adicionar`, 'default');
+          }
+        }}
+      />
+
       <div className="workspace">
         <Sidebar onImport={importFiles} onAdicionarTudo={adicionarTodaMidia} onLimparMidia={limparMidia} mobileOpen={gaveta === 'lib'} />
         <main className="center">
@@ -379,7 +512,14 @@ export default function App() {
         <div className="ph" />
         <h3>Gire o celular</h3>
         <p>O editor funciona melhor na horizontal, com mais espaço para a timeline.</p>
-        <button onClick={(e) => (e.currentTarget.parentElement as HTMLElement).style.display = 'none'}>Continuar assim</button>
+        <button
+          onClick={() => {
+            localStorage.setItem('vortex.hintGirar', 'ok');
+            (document.querySelector('.rotate-hint') as HTMLElement | null)?.classList.add('oculto');
+          }}
+        >
+          Continuar assim
+        </button>
       </div>
 
       {modal === 'export' && <ExportModal />}
@@ -389,6 +529,38 @@ export default function App() {
       {modal === 'account' && <PainelCliente onSair={() => { setSessao(null); setGaveta(null); }} />}
       {modal === 'checkout' && <Checkout />}
       {modal === 'xml' && <ImportarXML />}
+      {modal === 'studio' && (
+        <div className="overlay" onClick={() => useUI.getState().closeModal()}>
+          <div className="modal" style={{ width: 'min(680px,100%)' }} onClick={(e) => e.stopPropagation()}>
+            <div className="modal-head">
+              <div className="modal-title">✦ Estúdio de IA</div>
+              <div className="spacer" />
+              <button className="btn ghost icon" onClick={() => useUI.getState().closeModal()}>
+                ✕
+              </button>
+            </div>
+            <div className="modal-body">
+              <StudioIA aoFechar={() => useUI.getState().closeModal()} />
+            </div>
+          </div>
+        </div>
+      )}
+      {modal === 'extrair' && (
+        <div className="overlay" onClick={() => useUI.getState().closeModal()}>
+          <div className="modal" style={{ width: 'min(860px,100%)' }} onClick={(e) => e.stopPropagation()}>
+            <div className="modal-head">
+              <div className="modal-title">Extrair conteúdo</div>
+              <div className="spacer" />
+              <button className="btn ghost icon" onClick={() => useUI.getState().closeModal()}>
+                ✕
+              </button>
+            </div>
+            <div className="modal-body">
+              <Extrair />
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="toasts">
         {toasts.map((t) => (

@@ -8,7 +8,7 @@ interface Props {
 
 export function TopBar({ onImport }: Props) {
   const { doc, renameProject, save, undo, redo, past, future, reset } = useEditor();
-  const { openModal, user } = useUI();
+  const { openModal, user, tema, setTema } = useUI();
   const fileRef = useRef<HTMLInputElement>(null);
 
   // atalhos globais de topo
@@ -79,11 +79,25 @@ export function TopBar({ onImport }: Props) {
       <button className="btn ghost" onClick={() => openModal('xml')} title="Importar projeto .xml do Alight Motion">
         XML
       </button>
+      <button className="btn primary" onClick={() => openModal('extrair')} title="Colar link do Drive, extrair de site ou transcrever">
+        ⤓ Extrair
+      </button>
+      <button className="btn ghost" onClick={() => openModal('studio')} title="Gerar imagem por IA">
+        ✦ IA
+      </button>
       <button className="btn ghost" onClick={() => openModal('packs')} title="Conteúdo e packs">
         Conteúdo
       </button>
       <button className="btn ghost" onClick={() => openModal('shortcuts')} title="Atalhos (?)">
         Atalhos
+      </button>
+
+      <button
+        className="theme-btn"
+        onClick={() => setTema(tema === 'claro' ? 'escuro' : 'claro')}
+        title="Trocar entre tema claro e escuro"
+      >
+        {tema === 'claro' ? '☾ Escuro' : '☀ Claro'}
       </button>
 
       <button

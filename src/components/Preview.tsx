@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import { useEditor } from '../store/editor';
 import { renderFrame, MediaCache, docDuration } from '../lib/renderer';
 import { AudioMixer } from '../lib/audio';
+import { SelectionLayer } from './SelectionLayer';
+import { BarraPro } from './BarraPro';
 import { fmtTime } from '../lib/anim';
 
 export function Preview() {
@@ -133,7 +135,39 @@ export function Preview() {
           className="canvas-shell"
           style={{ width: doc.settings.width * scale, height: doc.settings.height * scale }}
         >
-          <canvas ref={canvasRef} style={{ width: '100%', height: '100%' }} />
+          <canvas
+            ref={canvasRef}
+            style={{ width: '100%', height: '100%' }}
+            onPointerDown={(ev) => {
+              const shell = ev.currentTarget.getBoundingClientRect();
+              const escala = shell.width / doc.settings.width;
+              const px = (ev.clientX - shell.left) / escala;
+              const py = (ev.clientY - shell.top) / escala;
+              /* procura o elemento mais acima que contenha o ponto */
+              const alvo = [...doc.elements]
+                .reverse()
+                .find((e) => {
+                  if (e.type === 'audio' || e.hidden) return false;
+                  if (playhead < e.start || playhead >= e.start + e.duration) return false;
+                  const t = e.transform;
+                  const rel = playhead - e.start;
+                  const valueAt = (p: { base: number; keyframes: Array<{ t: number; v: number; easing: string }> }) => {
+                    if (!p.keyframes.length) return p.base;
+                    const ordenados = [...p.keyframes].sort((a, b) => a.t - b.t);
+                    let v = ordenados[0].v;
+                    for (const k of ordenados) if (k.t <= rel) v = k.v;
+                    return v;
+                  };
+                  const cx = valueAt(t.x);
+                  const cy = valueAt(t.y);
+                  const larg = e.type === 'text' ? doc.settings.width * 0.6 : doc.settings.width * 0.5 * valueAt(t.scale);
+                  const alt = e.type === 'text' ? doc.settings.height * 0.12 : doc.settings.height * 0.16 * valueAt(t.scale);
+                  return Math.abs(px - cx) <= larg / 2 && Math.abs(py - cy) <= alt / 2;
+                });
+              useEditor.getState().select(alvo ? [alvo.id] : []);
+            }}
+          />
+          <SelectionLayer />
           <div className="safe-area" />
           <div className="stage-badge">
             {doc.settings.width}×{doc.settings.height} · {doc.settings.fps}fps
@@ -199,6 +233,7 @@ export function Preview() {
           O
         </button>
       </div>
+      <BarraPro />
     </div>
   );
 }

@@ -45,7 +45,7 @@ export function Sidebar({ onImport, onAdicionarTudo, onLimparMidia, mobileOpen }
     const isAudio = asset.kind === 'audio';
     const track =
       ed.doc.tracks.find((t) => t.id === trackId) ??
-      ed.doc.tracks.find((t) => (isAudio ? t.kind === 'audio' : t.kind === 'video'));
+      ed.trilhaPara(isAudio ? 'audio' : asset.kind === 'image' ? 'image' : 'video');
     if (!track) {
       toast('Adicione uma trilha primeiro', 'warn');
       return;
@@ -284,9 +284,10 @@ export function Sidebar({ onImport, onAdicionarTudo, onLimparMidia, mobileOpen }
 }
 
 function identityTransformSafe() {
+  const { width, height } = useEditor.getState().doc.settings;
   return {
-    x: { base: 0, keyframes: [] },
-    y: { base: 0, keyframes: [] },
+    x: { base: width / 2, keyframes: [] },
+    y: { base: height / 2, keyframes: [] },
     scale: { base: 1, keyframes: [] },
     rotation: { base: 0, keyframes: [] },
     opacity: { base: 1, keyframes: [] },

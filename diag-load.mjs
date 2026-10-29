@@ -1,0 +1,13 @@
+import { chromium } from 'playwright';
+const b = await chromium.launch();
+const p = await b.newPage({ viewport: { width: 1500, height: 950 } });
+p.on('pageerror', e => console.log('pageerror', e.message));
+await p.goto('http://127.0.0.1:8890', { waitUntil: 'networkidle' });
+await p.waitForTimeout(1000);
+console.log('canPlayH264', await p.evaluate(() => document.createElement('video').canPlayType('video/mp4; codecs="avc1.42E01E"')));
+const botoes = await p.locator('.topbar button, header button').allInnerTexts();
+console.log('botoes:', JSON.stringify(botoes));
+console.log('overlays:', await p.locator('.overlay').count());
+console.log('login visivel:', await p.locator('.overlay').first().isVisible().catch(()=>false));
+await p.screenshot({ path: '/home/user/vortex/docs/diag-load.png' });
+await b.close();

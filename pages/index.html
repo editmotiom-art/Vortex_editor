@@ -10,10 +10,16 @@
     <meta name="description" content="Vortex — editor profissional de vídeo, áudio e motion graphics no navegador." />
     <title>Vortex — Editor profissional</title>
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23070b14'/%3E%3Cpath d='M8 9l8 15 8-15' stroke='%2322d3ee' stroke-width='3.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
-    <script type="module" crossorigin src="./assets/index-CpFq7SMa.js"></script>
-    <link rel="stylesheet" crossorigin href="./assets/index-BmYQEZsK.css">
+    <script type="module" crossorigin src="./assets/index-DhwwoSuk.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index-BVvGxtVu.css">
   </head>
   <body>
+    <script>
+      (function () {
+        var t = localStorage.getItem('vortex.tema') || 'claro';
+        document.documentElement.setAttribute('data-theme', t === 'claro' ? 'light' : 'dark');
+      })();
+    </script>
     <div id="root"></div>
   </body>
 </html>

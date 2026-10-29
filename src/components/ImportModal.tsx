@@ -229,15 +229,37 @@ export function ImportModal({ onImported }: Props) {
                       }}
                       title={it.url}
                     >
-                      <div className="media-ico" style={{ background: cor(it.type) }}>
-                        {icone(it.type)}
-                      </div>
+                      {it.type === 'image' ? (
+                        <img
+                          src={it.url}
+                          alt=""
+                          className="imp-thumb"
+                          loading="lazy"
+                          onError={(e) => {
+                            (e.currentTarget as HTMLImageElement).style.display = 'none';
+                          }}
+                        />
+                      ) : (
+                        <div className="media-ico" style={{ background: cor(it.type) }}>
+                          {icone(it.type)}
+                        </div>
+                      )}
                       <div className="media-info">
                         <div className="media-name">{it.name || it.url.split('/').pop()?.slice(0, 44) || 'mídia'}</div>
                         <div className="media-sub">
                           {it.type ?? 'auto'}
                           {it.width ? ` · ${it.width}×${it.height}` : ''}
-                          {marcado ? ' · ✓' : ''}
+                          {marcado ? ' · ✓' : ''}{' '}
+                          <a
+                            href={it.url}
+                            target="_blank"
+                            rel="noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            style={{ color: 'var(--acc)', fontWeight: 800 }}
+                            title="Prévia em nova aba"
+                          >
+                            ver
+                          </a>
                         </div>
                       </div>
                     </div>

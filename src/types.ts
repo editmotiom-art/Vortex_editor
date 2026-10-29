@@ -179,8 +179,8 @@ export interface ProjectDoc {
 export const anim = (base: number): AnimProp => ({ base, keyframes: [] });
 
 export const identityTransform = (): Transform => ({
-  x: anim(0),
-  y: anim(0),
+  x: anim(540),
+  y: anim(960),
   scale: anim(1),
   rotation: anim(0),
   opacity: anim(1),
