@@ -6,9 +6,11 @@
   "description": "Editor profissional de vídeo, áudio e motion graphics com biblioteca de conteúdo integrada",
   "scripts": {
     "dev": "vite --host 0.0.0.0 --port 5173",
-    "build": "tsc -b && vite build",
+    "build": "tsc --noEmit && vite build",
     "preview": "vite preview --host 0.0.0.0 --port 4173",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "serve": "node netlify/dev-server.mjs 8888",
+    "local": "npm run build && node netlify/dev-server.mjs 8888"
   },
   "dependencies": {
     "react": "^19.1.0",

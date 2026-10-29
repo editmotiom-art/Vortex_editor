@@ -2,8 +2,8 @@
  * IMPORTAÇÃO DE MÍDIA REMOTA
  * ------------------------------------------------------------
  * Duas portas de entrada:
- *  1. Extensão "Vortex Mídia"  → mensagem / ?import= na URL
- *  2. Colar link / URL direta   → baixa via fetch e cria blob local
+ *  1. "De um site"  → função Netlify lê a página e devolve as mídias
+ *  2. "Link direto" → baixa via fetch (direto ou pelo proxy)
  *
  * O arquivo vira um blob na memória do navegador: nada passa pelo nosso banco.
  */
@@ -74,7 +74,7 @@ export async function fetchRemote(item: RemoteItem): Promise<ImportedMedia> {
   let sizeBytes = 0;
   let blobOk = false;
 
-  // tenta baixar os bytes (funciona quando o host permite CORS)
+  // 1ª tentativa: host permite CORS
   try {
     const res = await fetch(item.url, { mode: 'cors', credentials: 'omit' });
     if (res.ok) {
@@ -86,7 +86,24 @@ export async function fetchRemote(item: RemoteItem): Promise<ImportedMedia> {
       }
     }
   } catch {
-    /* CORS bloqueado: cai no uso direto da URL */
+    /* CORS bloqueado */
+  }
+
+  // 2ª tentativa: passa pelo proxy do próprio site
+  if (!blobOk) {
+    try {
+      const res = await fetch(proxyUrl(item.url));
+      if (res.ok) {
+        const blob = await res.blob();
+        if (blob.size > 0) {
+          sizeBytes = blob.size;
+          url = URL.createObjectURL(blob);
+          blobOk = true;
+        }
+      }
+    } catch {
+      /* sem proxy disponível: usa a URL direta */
+    }
   }
 
   const meta = await probe(url, kind);
@@ -121,56 +138,48 @@ export function readImportParam(): RemoteItem[] {
 }
 
 /* ------------------------------------------------------------
- * PONTE COM A EXTENSÃO (externally_connectable)
+ * MINERAÇÃO NO SERVIDOR (Netlify Functions)
  * ------------------------------------------------------------ */
-interface ChromeBridge {
-  runtime?: {
-    sendMessage: (
-      extId: string,
-      msg: unknown,
-      cb: (r?: { ok?: boolean; itens?: RemoteItem[]; erro?: string; versao?: string }) => void,
-    ) => void;
-  };
+export interface MineracaoResult {
+  ok: boolean;
+  erro?: string;
+  pagina?: string;
+  site?: string;
+  titulo?: string;
+  total?: number;
+  itens: RemoteItem[];
 }
 
-const EXT_ID_KEY = 'vortex.extId';
+/** URL do proxy de arquivos */
+export const proxyUrl = (url: string): string =>
+  `/.netlify/functions/proxy?url=${encodeURIComponent(url)}`;
 
-export function saveExtensionId(id: string): void {
-  localStorage.setItem(EXT_ID_KEY, id.trim());
-}
-
-export function getExtensionId(): string {
-  return localStorage.getItem(EXT_ID_KEY) ?? '';
-}
-
-/** verifica se a extensão está instalada e responde */
-export function pingExtension(id = getExtensionId()): Promise<{ ok: boolean; versao?: string; erro?: string }> {
-  return new Promise((resolve) => {
-    const c = (window as unknown as { chrome?: ChromeBridge }).chrome;
-    if (!id) return resolve({ ok: false, erro: 'ID da extensão não configurado' });
-    if (!c?.runtime?.sendMessage) return resolve({ ok: false, erro: 'Este navegador não expõe a ponte de extensões' });
-    try {
-      c.runtime.sendMessage(id, { tipo: 'ping' }, (r) => {
-        const lastError = (window as unknown as { chrome?: { runtime?: { lastError?: unknown } } }).chrome?.runtime
-          ?.lastError;
-        if (lastError) return resolve({ ok: false, erro: 'Extensão não encontrada' });
-        resolve({ ok: !!r?.ok, versao: r?.versao });
-      });
-    } catch (e) {
-      resolve({ ok: false, erro: (e as Error).message });
+/** pede ao servidor para ler uma página e devolver as mídias dela */
+export async function minerarSite(url: string): Promise<MineracaoResult> {
+  try {
+    const res = await fetch('/.netlify/functions/minerar', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ url }),
+    });
+    if (!res.ok) {
+      const txt = await res.text().catch(() => '');
+      return {
+        ok: false,
+        itens: [],
+        erro:
+          res.status === 404
+            ? 'A captura de sites roda no servidor (Netlify). No modo local ela não existe — use “Link direto”.'
+            : `Servidor respondeu ${res.status}${txt ? `: ${txt.slice(0, 80)}` : ''}`,
+      };
     }
-  });
-}
-
-/** pede à extensão as mídias da aba ativa */
-export function captureFromTab(id = getExtensionId()): Promise<RemoteItem[]> {
-  return new Promise((resolve) => {
-    const c = (window as unknown as { chrome?: ChromeBridge }).chrome;
-    if (!id || !c?.runtime?.sendMessage) return resolve([]);
-    try {
-      c.runtime.sendMessage(id, { tipo: 'capturar-aba' }, (r) => resolve(r?.itens ?? []));
-    } catch {
-      resolve([]);
-    }
-  });
+    const data = (await res.json()) as MineracaoResult;
+    return { ...data, itens: data.itens ?? [] };
+  } catch {
+    return {
+      ok: false,
+      itens: [],
+      erro: 'Não consegui falar com o servidor de captura. No modo local use “Link direto”.',
+    };
+  }
 }

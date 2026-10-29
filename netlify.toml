@@ -5,6 +5,11 @@
 [build.environment]
   NODE_VERSION = "20"
 
+# funções de servidor (captura de sites + proxy de arquivos)
+[functions]
+  directory = "netlify/functions"
+  node_bundler = "esbuild"
+
 # SPA: qualquer rota cai no index
 [[redirects]]
   from = "/*"

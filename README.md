@@ -24,7 +24,7 @@ biblioteca de conteúdo integrada e export de vídeo/áudio. Sem instalação, s
 | **Biblioteca** | 60+ itens em 10 categorias (templates, transições, looks, texto, formas, elementos, SFX, música, overlays, fundos), busca e filtros |
 | **Templates** | 8 templates de motion com keyframes prontos (Pop, Zoom Punch, Slide, Fade, Bounce, Spin, Glitch, Ken Burns) |
 | **Export** | MP4/WebM + áudio mixado, WAV só áudio, PNG de frame, projeto em JSON; presets Reels/Shorts/YouTube/Quadrado |
-| **Extensão** | "Vortex Mídia" (Chrome/Edge MV3): captura imagem/vídeo/áudio de qualquer página e manda para a biblioteca; + importação por link |
+| **Baixar de site** | Você informa o endereço de uma página e o servidor devolve todas as imagens, vídeos e áudios dela — escolhe o que quer e importa. Também aceita link direto de arquivo. Sem instalar nada. |
 | **Projeto** | autosave, undo/redo (60 passos), atalhos completos, importar por arrastar-e-soltar |
 
 ---
@@ -67,7 +67,10 @@ src/
 supabase/
   migrations/            schema SaaS (perfis, assinaturas, projetos, packs)
   functions/             checkout, stripe-webhook, pack-link
-extension/               extensão Chrome/Edge "Vortex Mídia" (MV3) — ver extension/README.md
+netlify/
+  functions/minerar.ts   lê uma página e devolve as mídias (nada é armazenado)
+  functions/proxy.ts     repassa arquivos bloqueados por CORS (até 80 MB)
+  dev-server.mjs         imita a Netlify localmente (npm run serve)
 ```
 
 ### Princípios que sustentam o projeto
