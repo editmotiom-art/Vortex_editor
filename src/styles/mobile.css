@@ -269,20 +269,37 @@
   .rotate-hint {
     display: flex;
     position: fixed;
-    inset: 0;
-    z-index: 200;
+    inset: auto 8px auto 8px;
+    bottom: 66px;
+    z-index: 90;
+    padding: 10px 12px;
+    border-radius: 12px;
+    gap: 2px;
+    box-shadow: 0 10px 30px rgba(0,0,0,.55);
     background: rgba(7, 10, 15, 0.96);
     backdrop-filter: blur(6px);
-    flex-direction: column;
+    border: 1px solid var(--line-2);
+    flex-direction: row;
     align-items: center;
-    justify-content: center;
-    gap: 16px;
-    padding: 30px;
-    text-align: center;
+    justify-content: flex-start;
+    gap: 9px;
+    text-align: left;
+  }
+  .rotate-hint h3 { font-size: 12px; }
+  .rotate-hint p { font-size: 10.5px; display: none; }
+  .rotate-hint button {
+    margin-left: auto;
+    font-size: 10.5px;
+    padding: 6px 9px;
+    border-radius: 7px;
+    background: var(--acc);
+    color: #04121a;
+    font-weight: 800;
+    white-space: nowrap;
   }
   .rotate-hint .ph {
-    width: 54px;
-    height: 92px;
+    width: 18px;
+    height: 30px;
     border: 2px solid var(--acc);
     border-radius: 9px;
     animation: girar 2.4s ease-in-out infinite;
@@ -379,4 +396,125 @@
   .entrar-titulo {
     font-size: 31px !important;
   }
+}
+
+/* ============================================================
+   PAINEL DO CLIENTE
+   ============================================================ */
+.pc-modal {
+  width: min(880px, 100%) !important;
+  max-height: min(92vh, 900px);
+}
+.pc-scroll { overflow: auto; }
+.painel-cliente { display: flex; flex-direction: column; gap: 14px; }
+
+.pc-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(34,211,238,.08), rgba(99,102,241,.08));
+}
+.pc-user { display: flex; align-items: center; gap: 11px; min-width: 0; }
+.pc-avatar {
+  width: 42px; height: 42px; border-radius: 12px;
+  display: grid; place-items: center;
+  font-weight: 900; font-size: 17px; color: #04121a;
+  background: linear-gradient(135deg, #22d3ee, #6366f1);
+  flex-shrink: 0;
+}
+.pc-nome { font-weight: 800; font-size: 14px; }
+.pc-email { font-size: 11.5px; color: var(--txt-2); word-break: break-all; }
+.pc-acoes { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+.pc-tabs { display: flex; gap: 4px; overflow-x: auto; padding-bottom: 2px; }
+.pc-tab {
+  padding: 7px 12px; border-radius: 8px; font-size: 11.5px; font-weight: 700;
+  color: var(--txt-2); border: 1px solid transparent; white-space: nowrap;
+}
+.pc-tab.active { color: var(--txt); background: var(--bg-3); border-color: var(--line-2); }
+
+.pc-body { display: flex; flex-direction: column; gap: 12px; }
+.pc-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px; }
+.pc-card {
+  border: 1px solid var(--line); border-radius: 10px; padding: 11px 12px;
+  background: var(--bg-2); display: flex; flex-direction: column; gap: 4px;
+}
+.pc-card-lbl { font-size: 10px; letter-spacing: .4px; text-transform: uppercase; color: var(--txt-2); }
+.pc-card b { font-size: 20px; font-weight: 900; }
+
+.pc-bloco { border: 1px solid var(--line); border-radius: 11px; padding: 13px 14px; background: var(--bg-2); }
+.pc-bloco h4 { font-size: 12.5px; font-weight: 800; margin-bottom: 7px; }
+.pc-bloco p { font-size: 12px; line-height: 1.6; color: var(--txt-1); }
+
+.pc-atalhos { display: flex; flex-wrap: wrap; gap: 7px; }
+.pc-lista { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+.pc-linha {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg-1);
+}
+.pc-linha b { font-size: 12px; }
+.pc-sub { font-size: 10.5px; color: var(--txt-2); }
+
+.pc-planos { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 9px; margin: 12px 0; }
+.pc-plano {
+  border: 1px solid var(--line); border-radius: 11px; padding: 12px;
+  display: flex; flex-direction: column; gap: 6px; background: var(--bg-1);
+}
+.pc-plano.atual { border-color: var(--acc); box-shadow: 0 0 0 1px var(--acc) inset; }
+.pc-plano-nome { font-weight: 900; font-size: 13px; }
+.pc-plano-preco { font-size: 12px; color: var(--acc); font-weight: 800; }
+.pc-plano-desc { font-size: 10.5px; color: var(--txt-2); line-height: 1.5; flex: 1; }
+.pc-plano-atual { font-size: 10px; font-weight: 800; color: var(--ok); letter-spacing: .5px; }
+
+.pc-form { display: grid; gap: 9px; max-width: 380px; }
+.pc-form label { display: flex; flex-direction: column; gap: 4px; font-size: 11px; color: var(--txt-2); }
+.pc-form input {
+  padding: 9px 11px; border-radius: 8px; border: 1px solid var(--line);
+  background: var(--bg-1); color: var(--txt); font-size: 13px; font-family: inherit;
+}
+
+.btn.danger { color: var(--err) !important; border-color: rgba(248,113,113,.35) !important; }
+
+/* celular: painel do cliente ocupa a tela */
+@media (max-width: 900px) {
+  .pc-modal { width: 100% !important; max-height: 96dvh; }
+  .pc-head { padding: 10px; }
+  .pc-cards { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* ============================================================
+   CELULAR EM RETRATO — editor utilizável (drawer em tela cheia)
+   ============================================================ */
+@media (max-width: 900px) {
+  .sidebar.mobile-open,
+  .inspector.mobile-open {
+    position: fixed;
+    inset: 0 0 58px 0;
+    width: 100% !important;
+    max-width: 100% !important;
+    z-index: 75;   /* acima do scrim (60) para receber os toques */
+    border-radius: 0;
+    box-shadow: 0 -10px 40px rgba(0,0,0,.6);
+  }
+  .drawer-scrim {
+    background: rgba(0,0,0,.55);
+    inset: 0 0 58px 0 !important;
+    z-index: 60;
+  }
+
+  /* retrato: preview em cima, timeline embaixo, sem estourar a tela */
+  .center { display: flex; flex-direction: column; min-height: 0; }
+  .preview-wrap { flex: 1 1 auto; min-height: 0; }
+  .timeline-shell { flex: 0 0 42%; min-height: 150px; }
+}
+
+@media (max-width: 900px) and (orientation: portrait) {
+  .stage video, .stage img, .stage canvas { max-height: 100%; }
+  .topbar { gap: 4px; }
+  .topbar .proj-title { max-width: 110px; }
 }

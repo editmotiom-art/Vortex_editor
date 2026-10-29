@@ -182,6 +182,106 @@ export function Inspector({ mobileOpen }: { mobileOpen?: boolean }) {
     );
   }
 
+  /* ---------- seleção múltipla: painel de edição em massa ---------- */
+  if (selection.length > 1) {
+    const sel = useEditor.getState().doc.elements.filter((e) => selection.includes(e.id));
+    return (
+      <aside className={`panel inspector${mobileOpen ? ' mobile-open' : ''}`}>
+        <div className="panel-head">
+          <span style={{ color: 'var(--acc)' }}>▣</span>
+          {sel.length} clipes selecionados
+          <div className="spacer" />
+          <button className="head-btn" title="Excluir todos (Del)" onClick={() => deleteSelected()}>
+            ×
+          </button>
+        </div>
+        <div className="panel-body">
+          <Section title="Aplicar em todos">
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+              {(['blur', 'glow', 'brightness', 'contrast', 'saturation', 'grayscale', 'vignette', 'grain'] as const).map(
+                (fx) => (
+                  <button
+                    key={fx}
+                    className="chip"
+                    onClick={() => {
+                      useEditor.getState().commit();
+                      sel.forEach((e) => useEditor.getState().setEffect(e.id, fx, 0.6));
+                    }}
+                  >
+                    + {fx}
+                  </button>
+                ),
+              )}
+            </div>
+          </Section>
+
+          <Section title="Tempo">
+            <div className="row">
+              <label>Ajustar início</label>
+              <input
+                className="num"
+                type="number"
+                placeholder="ex.: 0"
+                onChange={(e) => {
+                  const v = Number(e.target.value);
+                  if (!Number.isFinite(v)) return;
+                  sel.forEach((x) => useEditor.getState().updateElement(x.id, { start: Math.max(0, v) }));
+                }}
+              />
+              <span style={{ fontSize: 10, color: 'var(--txt-2)' }}>ms</span>
+            </div>
+            <div className="row">
+              <label>Duração</label>
+              <input
+                className="num"
+                type="number"
+                placeholder="ex.: 3000"
+                onChange={(e) => {
+                  const v = Number(e.target.value);
+                  if (!Number.isFinite(v) || v < 100) return;
+                  sel.forEach((x) => useEditor.getState().updateElement(x.id, { duration: v }));
+                }}
+              />
+              <span style={{ fontSize: 10, color: 'var(--txt-2)' }}>ms</span>
+            </div>
+          </Section>
+
+          <Section title="Transformar">
+            {(
+              [
+                ['x', 'X'],
+                ['y', 'Y'],
+                ['scale', 'Escala'],
+                ['rotation', 'Rotação'],
+                ['opacity', 'Opacidade'],
+              ] as const
+            ).map(([prop, label]) => (
+              <div className="row" key={prop}>
+                <label>{label}</label>
+                <input
+                  className="num"
+                  type="number"
+                  step={prop === 'scale' || prop === 'opacity' ? 0.05 : 1}
+                  placeholder="—"
+                  onChange={(e) => {
+                    const v = Number(e.target.value);
+                    if (!Number.isFinite(v)) return;
+                    sel.forEach((x) => useEditor.getState().updateTransform(x.id, prop, { base: v, keyframes: [] }));
+                  }}
+                />
+              </div>
+            ))}
+          </Section>
+
+          <div className="hint" style={{ marginTop: 10 }}>
+            Os valores de Transformar só mudam quando você digita um número no campo — assim nenhum clipe é
+            alterado sem querer. Segure o dedo/arraste na timeline para selecionar vários.
+          </div>
+        </div>
+      </aside>
+    );
+  }
+
   const isText = el.type === 'text';
   const isMedia = el.type === 'video' || el.type === 'image' || el.type === 'audio';
 

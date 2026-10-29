@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { sessaoAtual, type Sessao } from '../lib/contas';
 
-export type ModalId = 'export' | 'packs' | 'shortcuts' | 'account' | 'import' | 'checkout' | 'ia' | 'xml' | null;
+export type ModalId = 'export' | 'packs' | 'shortcuts' | 'account' | 'import' | 'checkout' | 'ia' | 'xml' | 'cliente' | null;
 
 export interface Toast {
   id: string;
@@ -14,7 +14,7 @@ interface UIState {
   toasts: Toast[];
   sidebarTab: 'library' | 'media' | 'packs' | 'xml';
   inspectorOpen: boolean;
-  user: { name: string; plan: 'free' | 'pro' | 'studio'; avatar: string } | null;
+  user: { name: string; plan: 'free' | 'pro' | 'studio'; avatar: string; email?: string } | null;
   sessao: Sessao | null;
   installedPacks: string[];
 
@@ -36,7 +36,7 @@ export const useUI = create<UIState>((set, get) => ({
   sidebarTab: 'library',
   inspectorOpen: true,
   user: sessaoInicial
-    ? { name: sessaoInicial.nome, plan: sessaoInicial.plano, avatar: (sessaoInicial.nome[0] ?? 'V').toUpperCase() }
+    ? { name: sessaoInicial.nome, plan: sessaoInicial.plano, avatar: (sessaoInicial.nome[0] ?? 'V').toUpperCase(), email: sessaoInicial.email }
     : null,
   sessao: sessaoInicial,
   installedPacks: [],
@@ -56,7 +56,7 @@ export const useUI = create<UIState>((set, get) => ({
   setSessao: (s) =>
     set({
       sessao: s,
-      user: s ? { name: s.nome, plan: s.plano, avatar: (s.nome[0] ?? 'V').toUpperCase() } : null,
+      user: s ? { name: s.nome, plan: s.plano, avatar: (s.nome[0] ?? 'V').toUpperCase(), email: s.email } : null,
     }),
   installPack: (id) => {
     set((s) => ({ installedPacks: [...new Set([...s.installedPacks, id])] }));

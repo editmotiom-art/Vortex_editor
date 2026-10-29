@@ -14,12 +14,15 @@ import {
   type Config,
 } from '../lib/config';
 import { listarContas, setPlanoConta, excluirConta, type Conta } from '../lib/contas';
+import { lerCache, varrerAcervo } from '../lib/driveIndex';
+import { useUI } from '../store/ui';
+import { VAULT_DRIVE } from '../data/catalogo';
 
 /* ============================================================
    PAINEL ADMINISTRATIVO
    ============================================================ */
 
-type Aba = 'visao' | 'contas' | 'planos' | 'ia' | 'pagamento' | 'acesso' | 'sistema';
+type Aba = 'visao' | 'contas' | 'planos' | 'ia' | 'pagamento' | 'acesso' | 'marca' | 'midia' | 'sistema';
 
 const campo: React.CSSProperties = {
   width: '100%',
@@ -107,6 +110,8 @@ export function Admin({ onSair }: { onSair: () => void }) {
             ['pagamento', 'Pagamento'],
             ['ia', 'Inteligência artificial'],
             ['acesso', 'Acesso do admin'],
+            ['marca', 'App e marca'],
+            ['midia', 'Acervo e mídia'],
             ['sistema', 'Sistema'],
           ] as [Aba, string][]
         ).map(([id, nome]) => (
@@ -155,6 +160,8 @@ export function Admin({ onSair }: { onSair: () => void }) {
         {aba === 'pagamento' && <Pagamento />}
         {aba === 'ia' && <IA />}
         {aba === 'acesso' && <Acesso />}
+        {aba === 'marca' && <Marca />}
+        {aba === 'midia' && <AcervoAdmin />}
         {aba === 'sistema' && <Sistema />}
       </main>
     </div>
@@ -773,6 +780,151 @@ function Acesso() {
 }
 
 /* ---------------- sistema ---------------- */
+
+
+/* ============================= APP E MARCA ============================= */
+function Marca() {
+  const { toast } = useUI();
+  const [cfg, setCfg] = useState<Config>(lerConfig());
+  const [rascunho, setRascunho] = useState({
+    nomeApp: (cfg as unknown as { marca?: { nome?: string } }).marca?.nome ?? 'Vortex',
+    cor: (cfg as unknown as { marca?: { cor?: string } }).marca?.cor ?? '#22d3ee',
+    rodape: (cfg as unknown as { marca?: { rodape?: string } }).marca?.rodape ?? '',
+    suporte: (cfg as unknown as { marca?: { suporte?: string } }).marca?.suporte ?? '',
+    aviso: (cfg as unknown as { marca?: { aviso?: string } }).marca?.aviso ?? '',
+  });
+
+  const salvar = () => {
+    const atualizado = {
+      ...cfg,
+      marca: {
+        nome: rascunho.nomeApp,
+        cor: rascunho.cor,
+        rodape: rascunho.rodape,
+        suporte: rascunho.suporte,
+        aviso: rascunho.aviso,
+      },
+    } as unknown as Config;
+    gravarConfig(atualizado);
+    setCfg(atualizado);
+    document.documentElement.style.setProperty('--acc', rascunho.cor);
+    toast('Marca e aparência atualizadas', 'ok');
+  };
+
+  return (
+    <>
+      <h2 style={{ fontSize: 20, fontWeight: 900, marginBottom: 4 }}>App e marca</h2>
+      <p style={{ fontSize: 12.5, color: 'var(--txt-2)', marginBottom: 16 }}>
+        Nome, cor principal e avisos do sistema. O que você salvar aqui aparece para todos os clientes.
+      </p>
+
+      <div style={{ display: 'grid', gap: 12, maxWidth: 520 }}>
+        <label style={{ fontSize: 11.5, color: 'var(--txt-2)' }}>
+          Nome do aplicativo
+          <input style={campo} value={rascunho.nomeApp} onChange={(e) => setRascunho({ ...rascunho, nomeApp: e.target.value })} />
+        </label>
+        <label style={{ fontSize: 11.5, color: 'var(--txt-2)' }}>
+          Cor principal (aparece em botões, destaques e no editor)
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 4 }}>
+            <input
+              type="color"
+              value={rascunho.cor}
+              onChange={(e) => setRascunho({ ...rascunho, cor: e.target.value })}
+              style={{ width: 46, height: 34, border: 'none', background: 'transparent', cursor: 'pointer' }}
+            />
+            <code style={{ fontSize: 12, color: 'var(--txt-1)' }}>{rascunho.cor}</code>
+          </div>
+        </label>
+        <label style={{ fontSize: 11.5, color: 'var(--txt-2)' }}>
+          Texto do rodapé do editor
+          <input style={campo} value={rascunho.rodape} placeholder="ex.: editmotion.art · support" onChange={(e) => setRascunho({ ...rascunho, rodape: e.target.value })} />
+        </label>
+        <label style={{ fontSize: 11.5, color: 'var(--txt-2)' }}>
+          Contato de suporte (aparece no painel do cliente)
+          <input style={campo} value={rascunho.suporte} placeholder="ex.: suporte@seudominio.com" onChange={(e) => setRascunho({ ...rascunho, suporte: e.target.value })} />
+        </label>
+        <label style={{ fontSize: 11.5, color: 'var(--txt-2)' }}>
+          Aviso global (banner no editor — deixe vazio para não mostrar)
+          <input style={campo} value={rascunho.aviso} placeholder="ex.: manutenção domingo das 2h às 4h" onChange={(e) => setRascunho({ ...rascunho, aviso: e.target.value })} />
+        </label>
+        <button className="btn primary" style={{ maxWidth: 220 }} onClick={salvar}>
+          Salvar alterações
+        </button>
+      </div>
+    </>
+  );
+}
+
+/* ============================= ACERVO E MÍDIA ============================= */
+function AcervoAdmin() {
+  const { toast } = useUI();
+  const [idx, setIdx] = useState(() => lerCache());
+  const [varrendo, setVarrendo] = useState(false);
+  const [prog, setProg] = useState('');
+
+  const varrer = async () => {
+    setVarrendo(true);
+    try {
+      const r = await varrerAcervo(
+        VAULT_DRIVE.map((p) => ({ id: p.pastaId, nome: p.nome })),
+        (p) => setProg(`Lendo “${p.pastaAtual}” · ${p.itens} arquivos`),
+      );
+      setIdx(r);
+      toast(`${r.itens.length} arquivos indexados`, 'ok');
+    } catch (e) {
+      toast(`Falha: ${(e as Error).message}`, 'err');
+    } finally {
+      setVarrendo(false);
+      setProg('');
+    }
+  };
+
+  const total = idx?.itens.length ?? 0;
+  const videos = idx?.itens.filter((i) => i.tipo === 'video').length ?? 0;
+  const audios = idx?.itens.filter((i) => i.tipo === 'audio').length ?? 0;
+  const imagens = idx?.itens.filter((i) => i.tipo === 'image').length ?? 0;
+
+  return (
+    <>
+      <h2 style={{ fontSize: 20, fontWeight: 900, marginBottom: 4 }}>Acervo e mídia</h2>
+      <p style={{ fontSize: 12.5, color: 'var(--txt-2)', marginBottom: 16 }}>
+        Pastas do Drive que alimentam a biblioteca. A leitura é feita pelo servidor do site, sem chave de API.
+      </p>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(130px,1fr))', gap: 10, marginBottom: 16 }}>
+        {[
+          ['Arquivos', total],
+          ['Vídeos', videos],
+          ['Áudios', audios],
+          ['Imagens', imagens],
+          ['Pastas', VAULT_DRIVE.length],
+        ].map(([l, v]) => (
+          <div key={l as string} style={{ border: '1px solid var(--line)', borderRadius: 9, padding: 12, background: 'var(--bg-2)' }}>
+            <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '.5px', color: 'var(--txt-2)' }}>{l}</div>
+            <div style={{ fontSize: 19, fontWeight: 900 }}>{v as number}</div>
+          </div>
+        ))}
+      </div>
+
+      <button className="btn primary" disabled={varrendo} onClick={() => void varrer()} style={{ marginBottom: 8 }}>
+        {varrendo ? 'Varrendo…' : 'Varrer o Drive agora'}
+      </button>
+      {prog && <div style={{ fontSize: 11.5, color: 'var(--txt-2)', marginBottom: 8 }}>{prog}</div>}
+
+      <div style={{ marginTop: 12, border: '1px solid var(--line)', borderRadius: 9, overflow: 'hidden' }}>
+        <div style={{ padding: '8px 12px', background: 'var(--bg-2)', fontSize: 10.5, fontWeight: 800, color: 'var(--txt-2)', letterSpacing: '.5px' }}>
+          PASTAS DO ACERVO
+        </div>
+        {VAULT_DRIVE.map((p) => (
+          <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 12px', borderTop: '1px solid var(--line)', fontSize: 12 }}>
+            <span>{p.nome}</span>
+            <span style={{ color: 'var(--txt-2)', fontSize: 10.5 }}>{p.categoria}</span>
+          </div>
+        ))}
+      </div>
+    </>
+  );
+}
 
 function Sistema() {
   const [config, setConfig] = useState<Config>(lerConfig());

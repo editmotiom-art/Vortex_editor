@@ -1,7 +1,8 @@
 import { useMemo, useRef, useState } from 'react';
 import { useEditor } from '../store/editor';
 import { useUI } from '../store/ui';
-import { LIBRARY, LIB_CATEGORIES, PACKS, type LibItem } from '../data/library';
+import { LIBRARY, LIB_CATEGORIES, PACKS } from '../data/library';
+import { aplicarItem } from '../lib/aplicarItem';
 import { fmtBytes, fmtTime } from '../lib/anim';
 import { uid } from '../types';
 import type { EffectType } from '../types';
@@ -9,121 +10,12 @@ import { BibliotecaXML } from './BibliotecaXML';
 
 interface Props {
   onImport: (files: FileList | File[]) => void;
+  onAdicionarTudo?: () => void;
+  onLimparMidia?: () => void;
   mobileOpen?: boolean;
 }
 
-/** aplica um item da biblioteca no projeto */
-function applyLibItem(item: LibItem): void {
-  const ed = useEditor.getState();
-  const ui = useUI.getState();
-  const sel = ed.selection[0];
-
-  /* no celular, a gaveta fecha ao aplicar — o resultado aparece no preview */
-  window.dispatchEvent(new Event('vortex:fechar-gaveta'));
-
-  if (item.apply.type === 'media') {
-    const pack = PACKS.find((p) => p.id === item.pack);
-    const installed = pack ? useUI.getState().installedPacks.includes(pack.id) : false;
-    if (!installed) {
-      ui.openModal('packs');
-      ui.toast(`"${item.name}" vem no pack ${item.pack} — instale para usar`, 'warn');
-      return;
-    }
-    ui.toast(`Arraste um arquivo de ${item.cat} do pack para a timeline`, 'warn');
-    return;
-  }
-
-  if (item.apply.type === 'text') {
-    const { content, size, weight, uppercase } = item.apply;
-    const id = ed.addText(content);
-    const el = useEditor.getState().doc.elements.find((e) => e.id === id);
-    if (el?.text) {
-      const doc = useEditor.getState().doc;
-      ed.updateElement(
-        id,
-        {
-          text: {
-            ...el.text,
-            fontSize: Math.round(doc.settings.height * (size ?? 0.075)),
-            fontWeight: weight ?? 800,
-            uppercase: uppercase ?? item.id === 'tx-caps',
-          },
-        },
-        false,
-      );
-    }
-    ui.toast(`Texto "${item.name}" adicionado`);
-    return;
-  }
-
-  if (item.apply.type === 'shape') {
-    ed.addShape(item.apply.shape);
-    ui.toast(`Forma adicionada`);
-    return;
-  }
-
-  if (item.apply.type === 'fx') {
-    if (!sel) {
-      ui.toast('Selecione um clipe na timeline primeiro', 'warn');
-      return;
-    }
-    const effect = item.apply.effect as EffectType;
-    ed.setEffect(sel, effect, item.apply.amount);
-    ui.toast(`"${item.name}" aplicado ao clipe selecionado`, 'ok');
-    return;
-  }
-
-  if (item.apply.type === 'kf') {
-    const preset = item.apply.preset;
-    const doc = ed.doc;
-    const id = ed.addText(preset === 'zoomPunch' ? 'IMPACTO' : 'TÍTULO');
-    const base = doc.settings.width / 2;
-    const y = doc.settings.height / 2;
-    const el = useEditor.getState().doc.elements.find((e) => e.id === id);
-    if (!el) return;
-
-    const kf = (arr: Array<[number, number] | [number, number, string]>) =>
-      arr.map(([t, v, e]) => ({ t, v, easing: (e ?? 'easeOut') as any }));
-
-    const presets: Record<string, () => void> = {
-      pop: () => {
-        ed.updateTransform(id, 'scale', { keyframes: kf([[0, 0.2, 'overshoot'], [400, 1.12, 'easeOut'], [620, 1, 'easeInOut']]) });
-        ed.updateTransform(id, 'opacity', { keyframes: kf([[0, 0], [220, 1]]) });
-      },
-      zoomPunch: () => {
-        ed.updateTransform(id, 'scale', { keyframes: kf([[0, 2.4, 'easeIn'], [280, 1, 'overshoot']]) });
-        ed.updateTransform(id, 'opacity', { keyframes: kf([[0, 0], [120, 1]]) });
-      },
-      slide: () => {
-        ed.updateTransform(id, 'x', { keyframes: kf([[0, base - doc.settings.width * 0.7, 'easeOut'], [520, base, 'easeOut']]) });
-        ed.updateTransform(id, 'opacity', { keyframes: kf([[0, 0], [200, 1]]) });
-      },
-      fade: () => {
-        ed.updateTransform(id, 'opacity', { keyframes: kf([[0, 0, 'easeInOut'], [900, 1, 'easeInOut']]) });
-      },
-      bounce: () => {
-        ed.updateTransform(id, 'y', { keyframes: kf([[0, y - 420, 'bounce'], [900, y, 'easeOut']]) });
-        ed.updateTransform(id, 'opacity', { keyframes: kf([[0, 0], [160, 1]]) });
-      },
-      spin: () => {
-        ed.updateTransform(id, 'rotation', { keyframes: kf([[0, -180, 'easeOut'], [700, 0, 'easeOut']]) });
-        ed.updateTransform(id, 'scale', { keyframes: kf([[0, 0.1], [700, 1, 'overshoot']]) });
-      },
-      glitchIn: () => {
-        ed.setEffect(id, 'rgbsplit', 10);
-        ed.updateTransform(id, 'opacity', { keyframes: kf([[0, 0], [90, 1], [180, 0.35], [260, 1]]) });
-        ed.updateTransform(id, 'x', { keyframes: kf([[0, base - 22], [120, base + 18], [240, base - 8], [320, base]]) });
-      },
-      kenBurns: () => {
-        ed.updateTransform(id, 'scale', { keyframes: kf([[0, 1, 'linear'], [5000, 1.18, 'linear']]) });
-      },
-    };
-    presets[preset]?.();
-    ui.toast(`Template "${item.name}" aplicado com keyframes`, 'ok');
-  }
-}
-
-export function Sidebar({ onImport, mobileOpen }: Props) {
+export function Sidebar({ onImport, onAdicionarTudo, onLimparMidia, mobileOpen }: Props) {
   const inputMidia = useRef<HTMLInputElement>(null);
   const { doc, addAsset } = useEditor();
   const { sidebarTab, setSidebarTab, openModal, installedPacks, toast } = useUI();
@@ -228,9 +120,9 @@ export function Sidebar({ onImport, mobileOpen }: Props) {
           <div className="panel-body">
             <div className="lib-grid">
               {items.map((it) => {
-                const locked = it.pack && !installedPacks.includes(it.pack);
+                const locked = false;
                 return (
-                  <div key={it.id} className="lib-card" onClick={() => applyLibItem(it)} title={`${it.name} — ${it.tags.join(', ')}`}>
+                  <div key={it.id} className="lib-card" onClick={() => aplicarItem(it)} title={`${it.name} — ${it.tags.join(', ')}`}>
                     <div className="lib-thumb" style={{ background: `linear-gradient(135deg, ${it.g[0]}, ${it.g[1]})` }}>
                       {it.icon ?? it.name.slice(0, 2)}
                       {locked ? <span className="badge-pack">PACK</span> : !it.pack ? <span className="badge-free">GRÁTIS</span> : null}
@@ -287,6 +179,22 @@ export function Sidebar({ onImport, mobileOpen }: Props) {
             </div>
           </div>
           <div className="panel-body" style={{ padding: '0 8px 8px' }}>
+            {mediaAssets.length > 0 && (
+              <div style={{ display: 'flex', gap: 5, marginBottom: 8, flexWrap: 'wrap' }}>
+                <button className="btn primary sm" style={{ flex: 1, fontSize: 10.5 }} onClick={() => onAdicionarTudo?.()}>
+                  ⤓ Tudo na timeline
+                </button>
+                <button
+                  className="btn ghost sm"
+                  style={{ fontSize: 10.5, color: 'var(--err)' }}
+                  onClick={() => {
+                    if (confirm(`Remover as ${mediaAssets.length} mídias do projeto?`)) onLimparMidia?.();
+                  }}
+                >
+                  Limpar ({mediaAssets.length})
+                </button>
+              </div>
+            )}
             {mediaAssets.length === 0 && (
               <div className="hint">
                 Os arquivos ficam <b>no seu dispositivo</b> — nada é enviado para servidor. O projeto salva só

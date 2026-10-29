@@ -120,6 +120,7 @@ export function renderFrame(
   const { width: W, height: H } = opt;
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.clearRect(0, 0, W, H);
+  ctx.filter = 'none';
   ctx.fillStyle = doc.settings.background;
   ctx.fillRect(0, 0, W, H);
 
@@ -175,15 +176,20 @@ export function renderFrame(
       }
       case 'shape': {
         const s = el.shape ?? { kind: 'rect', fill: '#8b5cf6', radius: 10 };
-        const w = doc.settings.width * 0.5 * sx;
-        const h = doc.settings.height * 0.16 * sy;
-        ctx.fillStyle = s.fill;
-        if (s.kind === 'ellipse') {
+        const preenchimento = s.fill ?? '#8b5cf6';
+        const ehTela = preenchimento.startsWith('linear-gradient') || preenchimento.startsWith('radial-gradient') ||
+          preenchimento.startsWith('repeating-linear-gradient') || preenchimento.startsWith('repeating-radial-gradient');
+        /* elementos de tela cheia (fundos e overlays) usam o canvas inteiro */
+        const telaCheia = ehTela;
+        const w = telaCheia ? W * 2 : doc.settings.width * 0.5 * sx;
+        const h = telaCheia ? H * 2 : doc.settings.height * 0.16 * sy;
+        ctx.fillStyle = criarFill(ctx, preenchimento, w, h);
+        if (s.kind === 'ellipse' && !telaCheia) {
           ctx.beginPath();
           ctx.ellipse(0, 0, w / 2, h / 2, 0, 0, Math.PI * 2);
           ctx.fill();
         } else {
-          const r = Math.min(s.radius, h / 2);
+          const r = telaCheia ? 0 : Math.min(s.radius, h / 2);
           ctx.beginPath();
           ctx.roundRect(-w / 2, -h / 2, w, h, r);
           ctx.fill();
@@ -272,3 +278,95 @@ function drawTextChar(
 /** Mede a duração total do documento */
 export const docDuration = (doc: ProjectDoc): number =>
   doc.elements.reduce((m, e) => Math.max(m, e.start + e.duration), 0);
+
+/**
+ * Converte um CSS de fundo em preenchimento real do canvas.
+ * Suporta cor sólida, linear-gradient, repeating-linear-gradient e radial-gradient.
+ * As paradas (#22d3ee33) viram rgba com alfa.
+ */
+function criarFill(ctx: CanvasRenderingContext2D, css: string, w: number, h: number): string | CanvasGradient {
+  const cor = (c: string): string => {
+    const t = c.trim();
+    if (t.startsWith('#')) {
+      const hex = t.slice(1);
+      if (hex.length === 8) {
+        const r = parseInt(hex.slice(0, 2), 16);
+        const g = parseInt(hex.slice(2, 4), 16);
+        const b = parseInt(hex.slice(4, 6), 16);
+        const a = parseInt(hex.slice(6, 8), 16) / 255;
+        return `rgba(${r},${g},${b},${a.toFixed(3)})`;
+      }
+      if (hex.length === 4) {
+        const r = parseInt(hex[0] + hex[0], 16);
+        const g = parseInt(hex[1] + hex[1], 16);
+        const b = parseInt(hex[2] + hex[2], 16);
+        const a = parseInt(hex[3] + hex[3], 16) / 255;
+        return `rgba(${r},${g},${b},${a.toFixed(3)})`;
+      }
+    }
+    return t;
+  };
+
+  const paradas = (txt: string) => {
+    const out: [number, string][] = [];
+    txt.split(',').forEach((parte, i, arr) => {
+      const p = parte.trim();
+      if (!p) return;
+      const m = p.match(/^(rgba?\([^)]*\)|#[0-9a-fA-F]{3,8}|[a-z]+)\s*([\d.]+%|0)?$/i);
+      if (m) {
+        out.push([m[2] ? parseFloat(m[2]) / 100 : i / Math.max(1, arr.length - 1), cor(m[1])]);
+      }
+    });
+    return out;
+  };
+
+  try {
+    if (css.startsWith('linear-gradient')) {
+      const dentro = css.slice(css.indexOf('(') + 1, css.lastIndexOf(')'));
+      const partes = dentro.split(/,(?![^(]*\))/);
+      let ang = 180;
+      if (/deg|to /.test(partes[0])) {
+        const a = partes.shift()!;
+        const g = a.match(/(-?[\d.]+)deg/);
+        if (g) ang = parseFloat(g[1]);
+      }
+      const rad = ((ang - 90) * Math.PI) / 180;
+      const x = Math.cos(rad);
+      const y = Math.sin(rad);
+      const grad = ctx.createLinearGradient(-x * w / 2, -y * h / 2, x * w / 2, y * h / 2);
+      paradas(partes.join(',')).forEach(([off, c]) => grad.addColorStop(Math.min(1, Math.max(0, off)), c));
+      return grad;
+    }
+
+    if (css.startsWith('repeating-linear-gradient')) {
+      const dentro = css.slice(css.indexOf('(') + 1, css.lastIndexOf(')'));
+      const partes = dentro.split(/,(?![^(]*\))/);
+      const g = (partes.shift() ?? '').match(/(-?[\d.]+)deg/);
+      const ang = g ? parseFloat(g[1]) : 0;
+      const rad = ((ang - 90) * Math.PI) / 180;
+      const x = Math.cos(rad);
+      const y = Math.sin(rad);
+      const grad = ctx.createLinearGradient(-x * 40, -y * 40, x * 40, y * 40);
+      const lista: [number, string][] = [];
+      partes.forEach((p) => {
+        const m = p.trim().match(/^(#[0-9a-fA-F]{3,8}|rgba?\([^)]+\))\s+([\d.]+)(px)?/);
+        if (m) lista.push([parseFloat(m[2]), cor(m[1])]);
+      });
+      const total = lista.length ? Math.max(...lista.map((l) => l[0])) : 4;
+      lista.forEach(([px, c]) => grad.addColorStop(Math.min(1, px / Math.max(1, total)), c));
+      return grad;
+    }
+
+    if (css.startsWith('radial-gradient')) {
+      const dentro = css.slice(css.indexOf('(') + 1, css.lastIndexOf(')'));
+      const partes = dentro.split(/,(?![^(]*\))/);
+      partes.shift(); // posição
+      const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, Math.max(w, h) / 2);
+      paradas(partes.join(',')).forEach(([off, c]) => grad.addColorStop(Math.min(1, Math.max(0, off)), c));
+      return grad;
+    }
+  } catch {
+    /* cai para cor sólida */
+  }
+  return cor(css.split(',')[0]);
+}

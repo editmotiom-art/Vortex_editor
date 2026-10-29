@@ -278,3 +278,30 @@ export const testarPagamento = (): { ok: boolean; msg: string } => {
   if (!pagamento.chavePublica) return { ok: false, msg: 'Falta a chave pública' };
   return { ok: true, msg: `Configurado para ${pagamento.provedor}` };
 };
+
+/* ---------------- planos prontos para a interface ---------------- */
+
+export interface PlanoView {
+  id: 'free' | 'pro' | 'studio';
+  nome: string;
+  preco: number;
+  periodo: string;
+  destaque: boolean;
+  exportMax: number;
+  itens: string[];
+  descricao: string;
+}
+
+export const PLANOS: PlanoView[] = lerConfig().planos.map((p) => ({
+  id: p.id as PlanoView['id'],
+  nome: p.nome,
+  preco: p.preco,
+  periodo: p.periodo,
+  destaque: p.destaque,
+  exportMax: p.exportMax,
+  itens: p.itens,
+  descricao: p.itens.slice(0, 2).join(' · '),
+}));
+
+export const botoesPlano = (p: { preco: number; periodo: string }): string =>
+  p.preco === 0 ? 'Grátis' : `R$ ${p.preco.toFixed(2).replace('.', ',')} ${p.periodo}`;

@@ -5,10 +5,12 @@ import { Preview } from './components/Preview';
 import { Inspector } from './components/Inspector';
 import { Timeline } from './components/Timeline';
 import { ExportModal, PacksModal, ShortcutsModal, AccountModal } from './components/Modals';
+import { PainelCliente } from './components/PainelCliente';
 import { ImportModal } from './components/ImportModal';
 import { ImportarXML } from './components/ImportarXML';
 import { Entrar } from './components/Entrar';
 import { sessaoAtual } from './lib/contas';
+import { identityTransform } from './types';
 import { Admin } from './components/Admin';
 import { Checkout } from './components/Checkout';
 import { lerConfig } from './lib/config';
@@ -115,6 +117,51 @@ export default function App() {
     },
     [addAsset, toast],
   );
+
+  /* ---------- ações em massa na mídia ---------- */
+  const adicionarTodaMidia = useCallback(() => {
+    const ed = useEditor.getState();
+    const trilha = ed.doc.tracks.find((t) => t.kind === 'video');
+    const trilhaAudio = ed.doc.tracks.find((t) => t.kind === 'audio');
+    let t = ed.playhead;
+    let n = 0;
+    for (const a of ed.doc.assets) {
+      const ehAudio = a.kind === 'audio';
+      const destino = ehAudio ? trilhaAudio : trilha;
+      if (!destino) continue;
+      const dur = a.durationMs > 0 ? a.durationMs : 5000;
+      ed.addElement({
+        type: ehAudio ? 'audio' : a.kind === 'image' ? 'image' : 'video',
+        name: a.name,
+        trackId: destino.id,
+        start: t,
+        duration: dur,
+        sourceIn: 0,
+        assetId: a.id,
+        transform: {
+          ...identityTransform(),
+          x: { base: ed.doc.settings.width / 2, keyframes: [] },
+          y: { base: ed.doc.settings.height / 2, keyframes: [] },
+        },
+        blend: 'normal',
+        effects: [],
+        volume: 1,
+        locked: false,
+        hidden: false,
+        color: ehAudio ? '#818cf8' : '#22d3ee',
+      });
+      if (!ehAudio) t += dur;
+      n += 1;
+    }
+    toast(n ? `${n} mídia(s) colocadas na timeline em sequência` : 'Nenhuma mídia para adicionar', n ? 'ok' : 'warn');
+  }, [toast]);
+
+  const limparMidia = useCallback(() => {
+    const ed = useEditor.getState();
+    const ids = ed.doc.assets.map((a) => a.id);
+    ids.forEach((id) => useEditor.getState().removeAsset(id));
+    toast(`${ids.length} mídia(s) removidas do projeto`, 'default');
+  }, [toast]);
 
   /* ---------- importação remota (extensão / link) ---------- */
   const importRemote = useCallback(
@@ -293,7 +340,7 @@ export default function App() {
       <TopBar onImport={importFiles} />
 
       <div className="workspace">
-        <Sidebar onImport={importFiles} mobileOpen={gaveta === 'lib'} />
+        <Sidebar onImport={importFiles} onAdicionarTudo={adicionarTodaMidia} onLimparMidia={limparMidia} mobileOpen={gaveta === 'lib'} />
         <main className="center">
           <Preview />
           <Timeline />
@@ -339,7 +386,7 @@ export default function App() {
       {modal === 'import' && <ImportModal onImported={importRemote} />}
       {modal === 'packs' && <PacksModal />}
       {modal === 'shortcuts' && <ShortcutsModal />}
-      {modal === 'account' && <AccountModal />}
+      {modal === 'account' && <PainelCliente onSair={() => { setSessao(null); setGaveta(null); }} />}
       {modal === 'checkout' && <Checkout />}
       {modal === 'xml' && <ImportarXML />}
 

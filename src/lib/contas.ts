@@ -139,6 +139,23 @@ export const entrar = async (
 
 export const sair = (): void => localStorage.removeItem(CHAVE_SESSAO);
 
+export const sairConta = (): void => localStorage.removeItem(CHAVE_SESSAO);
+
+/** troca a senha do próprio cliente */
+export const trocarSenhaCliente = async (
+  contaId: string,
+  novaSenha: string,
+): Promise<{ ok: boolean; erro?: string }> => {
+  const contas = lerContas();
+  const i = contas.findIndex((c) => c.id === contaId);
+  if (i < 0) return { ok: false, erro: 'Conta não encontrada' };
+  if (novaSenha.length < 6) return { ok: false, erro: 'A senha precisa de 6 caracteres' };
+  const sal = aleatorio(16);
+  contas[i] = { ...contas[i], sal, senhaHash: await hash(novaSenha, sal) };
+  gravarContas(contas);
+  return { ok: true };
+};
+
 export const mudarPlano = (contaId: string, plano: Plano): void => {
   const contas = lerContas().map((c) =>
     c.id === contaId ? { ...c, plano, planoDesde: plano === 'pro' ? Date.now() : undefined } : c,
