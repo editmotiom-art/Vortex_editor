@@ -24,9 +24,11 @@
     "@types/react": "^19.1.0",
     "@types/react-dom": "^19.1.0",
     "@vitejs/plugin-react": "^4.7.0",
-    "netlify-cli": "^17.38.1",
-    "playwright": "^1.49.1",
     "typescript": "^5.9.3",
     "vite": "^6.4.5"
-  }
+  },
+  "engines": {
+    "node": "20.x"
+  },
+  "optionalDependencies": {}
 }

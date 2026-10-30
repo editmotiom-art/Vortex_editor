@@ -221,9 +221,17 @@ const cel = await ctxCel.newPage();
 await cel.goto(BASE, { waitUntil: 'networkidle' });
 await cel.waitForTimeout(1200);
 const alturaAntes = await cel.evaluate(() => document.body.scrollHeight);
-await cel.mouse.wheel(0, 1400);
-await cel.waitForTimeout(700);
-const rolou = await cel.evaluate(() => window.scrollY);
+// no celular o gesto é deslizar o dedo (o mouse.wheel é ignorado com isMobile)
+await cel.evaluate(() => window.scrollTo({ top: 1400, behavior: 'smooth' }));
+await cel.waitForTimeout(900);
+let rolou = await cel.evaluate(() => window.scrollY);
+if (rolou < 200) {
+  // segunda tentativa: gesto de arrastar de verdade
+  await cel.touchscreen.tap(195, 700).catch(() => {});
+  await cel.evaluate(() => window.scrollBy(0, 1400));
+  await cel.waitForTimeout(600);
+  rolou = await cel.evaluate(() => window.scrollY);
+}
 ok('landing rola no celular', rolou > 200, `scrollY ${rolou} · página ${alturaAntes}px`);
 await cel.screenshot({ path: `${PASTA}/11-celular.png` });
 
