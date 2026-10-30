@@ -10,14 +10,14 @@ import { Extrair } from './components/Extrair';
 import { DropGlobal } from './components/DropGlobal';
 import { SoltarUniversal } from './components/SoltarUniversal';
 import { StudioIA } from './components/StudioIA';
-import { BaixaTudo } from './components/BaixaTudo';
+import { BaixarConteudo } from './components/BaixarConteudo';
 import { ImportModal } from './components/ImportModal';
 import { ImportarXML } from './components/ImportarXML';
 import { Entrar } from './components/Entrar';
 import { Landing } from './components/Landing';
 import { Transcricao } from './components/Transcricao';
 import { ChatCriacao } from './components/ChatCriacao';
-import { sessaoAtual } from './lib/contas';
+import { atualizarSessao, sessaoAtual, tokenSalvo } from './lib/contas';
 import { identityTransform } from './types';
 import { instalarCliques } from './lib/sons';
 import { Admin } from './components/Admin';
@@ -68,7 +68,7 @@ export default function App() {
 
   /* pagou? o que ele queria abrir abre sozinho */
   useEffect(() => {
-    if (!sessao || sessao.plano === 'free') return;
+    if (!sessao || (sessao.papel !== 'admin' && (sessao.horasRestantes ?? 0) <= 0)) return;
     if (!portao?.modal) return;
     const alvo = portao.modal;
     setPortao(null);
@@ -120,11 +120,50 @@ export default function App() {
 
   /* ---------- sessão: garante o estado do usuário no boot ---------- */
   useEffect(() => {
-    if (!sessao) {
-      const s = sessaoAtual();
-      if (s) setSessao(s);
+    if (sessao) return;
+    const local = sessaoAtual();
+    if (local) {
+      setSessao(local);
+      return;
+    }
+    /* tem token mas o cache da sessão não existe (aparelho novo, cache limpo):
+       pergunta ao banco antes de mostrar a landing */
+    if (tokenSalvo()) {
+      void atualizarSessao().then((s) => {
+        if (s) setSessao(s);
+      });
     }
   }, [sessao, setSessao]);
+
+  /* ---------- o relógio do plano vem do SERVIDOR ----------
+     A cada 60 s (e ao voltar para a aba) o editor pergunta ao banco quantas
+     horas restam. Assim, plano vencido ou revogado pelo admin é percebido na
+     hora — não adianta editar o armazenamento do navegador. */
+  useEffect(() => {
+    let vivo = true;
+    const conferir = async () => {
+      const s = await atualizarSessao();
+      if (!vivo) return;
+      if (s) setSessao(s);
+      else if (useUI.getState().sessao) {
+        setSessao(null);
+        useUI.getState().toast('Sua sessão expirou — entre de novo', 'warn');
+      }
+    };
+    if (sessao) void conferir();
+    const t = setInterval(() => {
+      if (useUI.getState().sessao) void conferir();
+    }, 60_000);
+    const aoVoltar = () => {
+      if (document.visibilityState === 'visible' && useUI.getState().sessao) void conferir();
+    };
+    document.addEventListener('visibilitychange', aoVoltar);
+    return () => {
+      vivo = false;
+      clearInterval(t);
+      document.removeEventListener('visibilitychange', aoVoltar);
+    };
+  }, [sessao?.token, setSessao]);
 
 
   /* ---------- importar arquivos ---------- */
@@ -637,7 +676,7 @@ export default function App() {
           <span className="ico">{playing ? '❚❚' : '▶'}</span>
           Play
         </button>
-        <button className="dock-btn" onClick={() => openModal('import')}>
+        <button className="dock-btn" onClick={() => abrirComPlano('baixatudo', 'Baixar conteúdo')}>
           <span className="ico">↓</span>
           Baixar
         </button>
@@ -680,14 +719,14 @@ export default function App() {
         <div className="overlay" onClick={() => useUI.getState().closeModal()}>
           <div className="modal" style={{ width: 'min(700px,100%)' }} onClick={(e) => e.stopPropagation()}>
             <div className="modal-head">
-              <div className="modal-title">⬇ Baixa Tudo — vídeo de qualquer site</div>
+              <div className="modal-title">⬇ Baixar conteúdo</div>
               <div className="spacer" />
               <button className="btn ghost icon" onClick={() => useUI.getState().closeModal()}>
                 ✕
               </button>
             </div>
             <div className="modal-body">
-              <BaixaTudo aoFechar={() => useUI.getState().closeModal()} />
+              <BaixarConteudo aoFechar={() => useUI.getState().closeModal()} />
             </div>
           </div>
         </div>

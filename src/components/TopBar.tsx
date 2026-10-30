@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { useEditor } from '../store/editor';
 import { useUI } from '../store/ui';
+import { BarraPlano, podeUsar } from './BarraPlano';
 
 interface Props {
   onImport: (files: FileList | File[]) => void;
@@ -8,13 +9,12 @@ interface Props {
 
 /**
  * PORTÃO DE PLANO
- * O plano Free conhece o editor, mas exportar, acervo e Baixa Tudo são pagos.
+ * Não existe mais "plano grátis": todo mundo tem uma quantidade de HORAS
+ * (definida pelo admin no cadastro). Enquanto houver horas, o editor inteiro
+ * funciona; quando acaba, exportar, acervo e Baixa Tudo pedem renovação.
  * (O aviso em si vive em components/AvisoPlano.tsx, acionado pelo App.)
  */
-const podeUsarPago = () => {
-  const plano = useUI.getState().sessao?.plano;
-  return !(!plano || plano === 'free');
-};
+const podeUsarPago = () => podeUsar();
 
 /** abre o modal pedido ou avisa que é recurso do plano pago */
 export const abrirComPlano = (modal: 'export' | 'packs' | 'baixatudo', recurso: string) => {
@@ -89,25 +89,22 @@ export function TopBar({ onImport }: Props) {
       <button className="btn" onClick={() => fileRef.current?.click()}>
         Importar
       </button>
-      <button
-        className="btn ghost"
-        onClick={() => openModal('import')}
-        title="Trazer imagem, vídeo ou áudio de qualquer site"
-      >
-        Baixar de site
-      </button>
       <button className="btn ghost" onClick={() => openModal('xml')} title="Importar projeto .xml do Alight Motion">
         XML
       </button>
-      <button className="btn primary" onClick={() => openModal('extrair')} title="Colar link do Drive, extrair de site ou transcrever">
-        ⤓ Extrair
+      <button
+        className="btn primary"
+        onClick={() => abrirComPlano('baixatudo', 'Baixar conteúdo')}
+        title="Baixar conteúdo: link de vídeo (YouTube, Instagram, TikTok…), pasta do Drive ou página da web"
+      >
+        ⬇ Baixar conteúdo
       </button>
       <button
         className="btn ghost"
-        onClick={() => abrirComPlano('baixatudo', 'Baixa Tudo')}
-        title="Baixa Tudo — trazer vídeo do YouTube, Instagram, TikTok, Vimeo…"
+        onClick={() => openModal('extrair')}
+        title="Contas e acervos do Drive: gerenciar pastas, varreduras e transcrição"
       >
-        ⬇ Baixa Tudo
+        ⤓ Acervo
       </button>
       <button
         className="btn ghost"
@@ -179,12 +176,13 @@ export function TopBar({ onImport }: Props) {
         Admin
       </button>
       <button className="btn" onClick={() => openModal('account')} title="Conta e assinatura">
-        {user && user.plan !== 'free' ? (
-          <span className="pill paid">{user.plan.toUpperCase()}</span>
+        {user && (user.papel === 'admin' || user.horasRestantes > 0) ? (
+          <span className="pill paid">{user.plan === 'nenhum' ? 'SEM PLANO' : user.plan.toUpperCase()}</span>
         ) : (
-          <span className="pill free">FREE</span>
+          <span className="pill free">SEM HORAS</span>
         )}
       </button>
+      <BarraPlano compacta />
 
       <button className="btn primary" onClick={() => abrirComPlano('export', 'Exportar')}>
         Exportar

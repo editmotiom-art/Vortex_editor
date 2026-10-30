@@ -1,0 +1,56 @@
+{
+  "base": "http://localhost:3001",
+  "email": "ui.1793369742120@vortex.dev",
+  "res": [
+    {
+      "nome": "sessão do banco é reconhecida ao abrir o site",
+      "ok": true,
+      "detalhe": "editor direto"
+    },
+    {
+      "nome": "editor mostra a barra de horas do plano",
+      "ok": true,
+      "detalhe": "TESTE · 1h de plano · 59min restantes"
+    },
+    {
+      "nome": "admin entra no painel com a senha do banco",
+      "ok": true,
+      "detalhe": ""
+    },
+    {
+      "nome": "aba Clientes lista a conta criada (veio do banco)",
+      "ok": true,
+      "detalhe": "ui.1793369742120@vortex.dev"
+    },
+    {
+      "nome": "horas dadas pelo admin aparecem para o cliente (persistiu)",
+      "ok": true,
+      "detalhe": "TESTE · 8h de plano · 7h 59min restantes"
+    },
+    {
+      "nome": "ferramenta única \"Baixar conteúdo\" abre",
+      "ok": true,
+      "detalhe": ""
+    },
+    {
+      "nome": "reconhece e lista a mídia do link do YouTube",
+      "ok": true,
+      "detalhe": "1 item(s) · Me at the zoo - jawed (240p, h264, youtube).mp4"
+    },
+    {
+      "nome": "arquivo baixado entrou na timeline",
+      "ok": true,
+      "detalhe": "1 clipe(s) na régua"
+    },
+    {
+      "nome": "aba Downloads mostra o histórico guardado na conta",
+      "ok": true,
+      "detalhe": "1 linha(s)"
+    },
+    {
+      "nome": "nenhum erro de JavaScript",
+      "ok": true,
+      "detalhe": ""
+    }
+  ]
+}

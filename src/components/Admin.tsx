@@ -2,18 +2,15 @@ import { useEffect, useState } from 'react';
 import {
   ADMIN_USUARIO_INICIAL,
   SENHA_ADMIN_INICIAL,
-  adminLogado,
-  entrarAdmin,
-  garantirAdmin,
   gravarConfig,
   lerConfig,
-  sairAdmin,
   testarIA,
   testarPagamento,
   trocarCredenciais,
   type Config,
 } from '../lib/config';
-import { listarContas, setPlanoConta, excluirConta, type Conta } from '../lib/contas';
+import { adminLogado, conferirAdmin, entrarAdmin, sairAdmin } from '../lib/adminSessao';
+
 import { lerCache, varrerAcervo } from '../lib/driveIndex';
 import { useUI } from '../store/ui';
 import { VAULT_DRIVE } from '../data/catalogo';
@@ -23,12 +20,13 @@ import { TODAS_SKILLS } from './SkillsChat';
 import { COTAS, lerUso, zerarUso } from '../lib/packsMonkeyPlan';
 import { baseApi, lerSaudeApi, testarApi } from '../lib/api';
 import { chamarFuncao, urlFuncao } from '../lib/api';
+import { Clientes, Pagamentos, RegrasPlano, Visao } from './AdminNuvem';
 
 /* ============================================================
    PAINEL ADMINISTRATIVO
    ============================================================ */
 
-type Aba = 'visao' | 'contas' | 'planos' | 'ia' | 'voz' | 'skills' | 'packs' | 'api' | 'pagamento' | 'acesso' | 'marca' | 'midia' | 'sistema';
+type Aba = 'visao' | 'contas' | 'horas' | 'pagamentos' | 'planos' | 'ia' | 'voz' | 'skills' | 'packs' | 'api' | 'pagamento' | 'acesso' | 'marca' | 'midia' | 'sistema';
 
 const campo: React.CSSProperties = {
   width: '100%',
@@ -66,8 +64,11 @@ export function Admin({ onSair }: { onSair: () => void }) {
   const [logado, setLogado] = useState(adminLogado());
   const [aba, setAba] = useState<Aba>('visao');
 
+  /* revalida no banco: se o token não for de admin, o painel fecha */
   useEffect(() => {
-    void garantirAdmin();
+    void conferirAdmin().then((ok) => {
+      if (!ok) setLogado(false);
+    });
   }, []);
 
   if (!logado) return <LoginAdmin onEntrar={() => setLogado(true)} />;
@@ -112,6 +113,8 @@ export function Admin({ onSair }: { onSair: () => void }) {
           [
             ['visao', 'Visão geral'],
             ['contas', 'Clientes'],
+            ['horas', 'Horas de plano'],
+            ['pagamentos', 'Pagamentos'],
             ['planos', 'Planos e preços'],
             ['pagamento', 'Pagamento'],
             ['ia', 'Inteligência artificial'],
@@ -165,7 +168,9 @@ export function Admin({ onSair }: { onSair: () => void }) {
       {/* -------- conteúdo -------- */}
       <main style={{ flex: 1, overflow: 'auto', padding: '22px 26px' }}>
         {aba === 'visao' && <Visao />}
-        {aba === 'contas' && <Contas />}
+        {aba === 'contas' && <Clientes />}
+        {aba === 'horas' && <RegrasPlano />}
+        {aba === 'pagamentos' && <Pagamentos />}
         {aba === 'planos' && <Planos />}
         {aba === 'pagamento' && <Pagamento />}
         {aba === 'ia' && <IA />}
@@ -255,155 +260,6 @@ function LoginAdmin({ onEntrar }: { onEntrar: () => void }) {
         </div>
       </form>
     </div>
-  );
-}
-
-/* ---------------- visão geral ---------------- */
-
-function Visao() {
-  const [contas, setContas] = useState<Conta[]>([]);
-  const [config, setConfig] = useState<Config>(lerConfig());
-
-  useEffect(() => {
-    setContas(listarContas());
-    setConfig(lerConfig());
-  }, []);
-
-  const pro = contas.filter((c) => c.plano !== 'free').length;
-  const receita = contas
-    .filter((c) => c.plano !== 'free')
-    .reduce((soma, c) => {
-      const p = config.planos.find((pl) => pl.id === c.plano);
-      return soma + (p?.preco ?? 0);
-    }, 0);
-
-  const cartao = (t: string, v: string, sub?: string) => (
-    <div className="card" style={{ flex: 1, minWidth: 160 }}>
-      <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '.7px', color: 'var(--txt-2)', textTransform: 'uppercase' }}>{t}</div>
-      <div style={{ fontSize: 26, fontWeight: 900, marginTop: 6, letterSpacing: '-.8px' }}>{v}</div>
-      {sub && <div style={{ fontSize: 11, color: 'var(--txt-2)', marginTop: 2 }}>{sub}</div>}
-    </div>
-  );
-
-  return (
-    <>
-      <h2 style={{ fontSize: 20, fontWeight: 900, marginBottom: 4 }}>Visão geral</h2>
-      <p style={{ fontSize: 12.5, color: 'var(--txt-2)', marginBottom: 18 }}>Números deste navegador (as contas locais).</p>
-
-      <div style={{ display: 'flex', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
-        {cartao('Clientes', String(contas.length), 'contas criadas')}
-        {cartao('Assinantes', String(pro), 'plano pago')}
-        {cartao('Receita mensal', `R$ ${receita.toFixed(2).replace('.', ',')}`, 'se todos forem reais')}
-        {cartao('Conversão', contas.length ? `${Math.round((pro / contas.length) * 100)}%` : '—', 'free → pago')}
-      </div>
-
-      <Bloco titulo="Situação das integrações" desc="O que já está ligado e o que falta configurar.">
-        {[
-          ['Captura de mídia de sites', true, 'funções Netlify'],
-          ['Login de clientes', true, 'localStorage'],
-          ['Painel administrativo', true, 'ativo'],
-          ['Pagamento', config.pagamento.provedor !== 'nenhum', config.pagamento.provedor],
-          ['Inteligência artificial', config.ia.ativo && !!config.ia.chave, config.ia.provedor],
-          ['Supabase (nuvem)', false, 'falta configurar'],
-        ].map(([nome, ok, detalhe]) => (
-          <div key={String(nome)} style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '8px 0', borderBottom: '1px solid var(--line)' }}>
-            <span style={{ width: 7, height: 7, borderRadius: '50%', background: ok ? 'var(--ok)' : 'var(--warn)' }} />
-            <span style={{ fontSize: 12.5 }}>{nome}</span>
-            <div style={{ flex: 1 }} />
-            <span style={{ fontSize: 11, color: 'var(--txt-2)' }}>{detalhe}</span>
-          </div>
-        ))}
-      </Bloco>
-
-      <Bloco titulo="Últimos clientes">
-        {contas.length === 0 && <p style={{ fontSize: 12 }}>Nenhuma conta criada ainda.</p>}
-        {contas
-          .slice()
-          .reverse()
-          .slice(0, 6)
-          .map((c) => (
-            <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '7px 0', borderBottom: '1px solid var(--line)' }}>
-              <div className="media-ico" style={{ width: 26, height: 26, fontSize: 11 }}>
-                {c.nome[0]?.toUpperCase()}
-              </div>
-              <div>
-                <div style={{ fontSize: 12.5, fontWeight: 600 }}>{c.nome}</div>
-                <div style={{ fontSize: 10.5, color: 'var(--txt-2)' }}>{c.email}</div>
-              </div>
-              <div style={{ flex: 1 }} />
-              <span className={`pill ${c.plano === 'free' ? 'free' : 'paid'}`}>{c.plano.toUpperCase()}</span>
-            </div>
-          ))}
-      </Bloco>
-    </>
-  );
-}
-
-/* ---------------- clientes ---------------- */
-
-function Contas() {
-  const [contas, setContas] = useState<Conta[]>([]);
-  const [busca, setBusca] = useState('');
-
-  const recarregar = () => setContas(listarContas());
-  useEffect(recarregar, []);
-
-  const filtradas = contas.filter(
-    (c) => c.nome.toLowerCase().includes(busca.toLowerCase()) || c.email.toLowerCase().includes(busca.toLowerCase()),
-  );
-
-  return (
-    <>
-      <h2 style={{ fontSize: 20, fontWeight: 900, marginBottom: 4 }}>Clientes</h2>
-      <p style={{ fontSize: 12.5, color: 'var(--txt-2)', marginBottom: 16 }}>Contas criadas neste navegador.</p>
-
-      <input style={{ ...campo, marginBottom: 14, maxWidth: 320 }} placeholder="Buscar por nome ou e-mail…" value={busca} onChange={(e) => setBusca(e.target.value)} />
-
-      <div style={{ border: '1px solid var(--line)', borderRadius: 9, overflow: 'hidden' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1.6fr .8fr .8fr 1fr', gap: 8, padding: '9px 13px', background: 'var(--bg-2)', fontSize: 10.5, fontWeight: 800, letterSpacing: '.5px', color: 'var(--txt-2)', textTransform: 'uppercase' }}>
-          <div>Nome</div>
-          <div>E-mail</div>
-          <div>Plano</div>
-          <div>Criado</div>
-          <div>Ações</div>
-        </div>
-        {filtradas.length === 0 && <div style={{ padding: 18, fontSize: 12, color: 'var(--txt-2)' }}>Nenhum cliente encontrado.</div>}
-        {filtradas.map((c) => (
-          <div key={c.id} style={{ display: 'grid', gridTemplateColumns: '1.4fr 1.6fr .8fr .8fr 1fr', gap: 8, padding: '10px 13px', borderTop: '1px solid var(--line)', fontSize: 12, alignItems: 'center' }}>
-            <div style={{ fontWeight: 600 }}>{c.nome}</div>
-            <div style={{ color: 'var(--txt-2)' }}>{c.email}</div>
-            <div>
-              <span className={`pill ${c.plano === 'free' ? 'free' : 'paid'}`}>{c.plano.toUpperCase()}</span>
-            </div>
-            <div style={{ color: 'var(--txt-2)', fontSize: 11 }}>{new Date(c.criadoEm).toLocaleDateString('pt-BR')}</div>
-            <div style={{ display: 'flex', gap: 5 }}>
-              <select
-                value={c.plano}
-                onChange={(e) => {
-                  setPlanoConta(c.id, e.target.value as Conta['plano']);
-                  recarregar();
-                }}
-                style={{ ...campo, padding: '4px 6px', fontSize: 11, width: 90 }}
-              >
-                <option value="free">Free</option>
-                <option value="pro">Pro</option>
-                <option value="studio">Studio</option>
-              </select>
-              <button
-                className="btn ghost sm"
-                onClick={() => {
-                  excluirConta(c.id);
-                  recarregar();
-                }}
-                style={{ fontSize: 11 }}
-              >
-                ×
-              </button>
-            </div>
-          </div>
-        ))}
-      </div>
-    </>
   );
 }
 
@@ -1348,7 +1204,7 @@ function Packs() {
             <div style={{ color: 'var(--txt-2)', fontSize: 11 }}>total histórico</div>
           </div>
           <div>
-            <div style={{ fontSize: 22, fontWeight: 900 }}>{COTAS.free}/{COTAS.pro}/{COTAS.studio}</div>
+            <div style={{ fontSize: 22, fontWeight: 900 }}>{COTAS.nenhum}/{COTAS.pro}/{COTAS.studio}</div>
             <div style={{ color: 'var(--txt-2)', fontSize: 11 }}>cota free/pro/studio por dia</div>
           </div>
         </div>

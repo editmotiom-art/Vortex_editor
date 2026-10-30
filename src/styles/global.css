@@ -2299,3 +2299,87 @@ img, video, canvas { max-width: 100%; }
     align-items: center;
   }
 }
+
+/* ============================================================
+   BARRA DO PLANO (horas) — usada no topo, no painel e no portão
+   ============================================================ */
+.barra-plano {
+  border: 1px solid var(--line);
+  background: var(--bg-2);
+  border-radius: 10px;
+  padding: 8px 11px;
+  margin: 8px 0;
+  min-width: 190px;
+}
+.barra-plano.compacta {
+  min-width: 150px;
+  max-width: 230px;
+  padding: 5px 9px;
+  margin: 0;
+}
+.barra-plano-topo {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 10.5px;
+  letter-spacing: .3px;
+}
+.barra-plano-plano b { font-size: 10.5px; letter-spacing: .6px; }
+.barra-plano-total { color: var(--txt-2); }
+.barra-plano-tempo { color: var(--txt-1); font-weight: 700; }
+.barra-plano-tempo.critico { color: var(--err, #f87171); }
+.barra-plano-trilha {
+  height: 6px;
+  border-radius: 4px;
+  background: var(--bg-3);
+  overflow: hidden;
+  margin-top: 5px;
+}
+.barra-plano.compacta .barra-plano-trilha { height: 4px; }
+.barra-plano-preenchida {
+  height: 100%;
+  border-radius: 4px;
+  transition: width .45s ease;
+}
+.barra-plano-btn { width: 100%; margin-top: 7px; }
+
+/* ============================================================
+   BAIXAR CONTEÚDO — ferramenta única (link de vídeo, Drive, site)
+   ============================================================ */
+.baixar-conteudo { display: flex; flex-direction: column; }
+.bc-lista {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 44vh;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 6px;
+  background: var(--bg-2);
+}
+.bc-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 9px;
+  border-radius: 7px;
+  font-size: 12.5px;
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+.bc-item:hover { background: var(--bg-3); }
+.bc-item.sel { border-color: rgba(34,211,238,.45); background: rgba(34,211,238,.07); }
+.bc-item input { accent-color: var(--acc); }
+.bc-ico { width: 18px; text-align: center; color: var(--acc); flex: none; }
+.bc-nome { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bc-tam { font-size: 10.5px; color: var(--txt-2); }
+.bc-estado { font-size: 10.5px; text-transform: uppercase; letter-spacing: .5px; color: var(--txt-2); }
+.bc-estado.ok { color: var(--ok, #34d399); }
+.bc-estado.erro { color: var(--err, #f87171); }
+.bc-estado.baixando { color: var(--acc); }
+@media (max-width: 900px) {
+  .barra-plano.compacta { display: none; }
+  .bc-lista { max-height: 38vh; }
+}

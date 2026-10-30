@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { criarConta, entrar, type Sessao } from '../lib/contas';
+import { useEffect, useState } from 'react';
+import { criarConta, entrar, lerConfigNuvem, type Sessao } from '../lib/contas';
 
 interface Props {
   onEntrar: (s: Sessao) => void;
@@ -20,6 +20,14 @@ export function Entrar({ onEntrar, onVoltar }: Props) {
   const [senha, setSenha] = useState('');
   const [erro, setErro] = useState('');
   const [carregando, setCarregando] = useState(false);
+  /* horas de teste que o admin definiu para contas novas (vem do servidor) */
+  const [horasTeste, setHorasTeste] = useState<number | null>(null);
+
+  useEffect(() => {
+    lerConfigNuvem()
+      .then((c) => setHorasTeste(Number(c?.horas_teste_novo_usuario ?? 0)))
+      .catch(() => setHorasTeste(null));
+  }, []);
 
   const enviar = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -118,7 +126,21 @@ export function Entrar({ onEntrar, onVoltar }: Props) {
             {modo === 'criar' ? 'Criar sua conta' : 'Entrar no Vortex'}
           </div>
           <div style={{ fontSize: 13, color: 'var(--txt-2)', marginBottom: 22 }}>
-            {modo === 'criar' ? 'Leva 20 segundos. Comece no plano grátis.' : 'Bom te ver de novo.'}
+            {modo === 'criar' ? (
+              horasTeste && horasTeste > 0 ? (
+                <>
+                  Leva 20 segundos. Sua conta nova ganha{' '}
+                  <b style={{ color: 'var(--acc)' }}>
+                    {horasTeste >= 24 ? `${Math.round(horasTeste / 24)} dia(s)` : `${horasTeste}h`} de acesso
+                  </b>{' '}
+                  para testar tudo.
+                </>
+              ) : (
+                'Leva 20 segundos. A conta já nasce pronta para receber horas de plano.'
+              )
+            ) : (
+              'Bom te ver de novo — seu plano aparece em qualquer aparelho.'
+            )}
           </div>
 
           {modo === 'criar' && (
@@ -208,9 +230,9 @@ export function Entrar({ onEntrar, onVoltar }: Props) {
               textAlign: 'center',
             }}
           >
-            Sua senha é guardada apenas como hash — nem nós conseguimos ler.
+            Conta no servidor: sua senha é guardada só como hash (bcrypt) — nem nós conseguimos ler.
             <br />
-            Os projetos ficam no seu navegador.
+            O plano é por horas e fica na sua conta, em qualquer aparelho.
           </div>
         </form>
       </div>

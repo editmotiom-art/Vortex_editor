@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { sessaoAtual, type Sessao } from '../lib/contas';
+import { sessaoAtual, type Plano, type Sessao } from '../lib/contas';
 
 export type ModalId = 'export' | 'packs' | 'shortcuts' | 'account' | 'import' | 'checkout' | 'ia' | 'xml' | 'cliente' | 'extrair' | 'studio' | 'baixatudo' | 'transcricao' | 'chatcriacao' | null;
 
@@ -15,7 +15,7 @@ interface UIState {
   sidebarTab: 'library' | 'media' | 'packs' | 'xml';
   tema: 'escuro' | 'claro';
   inspectorOpen: boolean;
-  user: { name: string; plan: 'free' | 'pro' | 'studio'; avatar: string; email?: string } | null;
+  user: { name: string; plan: Plano; avatar: string; email?: string; horasRestantes: number; papel: 'cliente' | 'admin' } | null;
   sessao: Sessao | null;
   installedPacks: string[];
 
@@ -42,7 +42,14 @@ export const useUI = create<UIState>((set, get) => ({
   tema: (localStorage.getItem('vortex.tema') as 'escuro' | 'claro') ?? 'claro',
   inspectorOpen: true,
   user: sessaoInicial
-    ? { name: sessaoInicial.nome, plan: sessaoInicial.plano, avatar: (sessaoInicial.nome[0] ?? 'V').toUpperCase(), email: sessaoInicial.email }
+    ? {
+        name: sessaoInicial.nome,
+        plan: sessaoInicial.plano,
+        avatar: (sessaoInicial.nome[0] ?? 'V').toUpperCase(),
+        email: sessaoInicial.email,
+        horasRestantes: sessaoInicial.horasRestantes,
+        papel: sessaoInicial.papel,
+      }
     : null,
   sessao: sessaoInicial,
   installedPacks: [],
@@ -70,7 +77,16 @@ export const useUI = create<UIState>((set, get) => ({
   setSessao: (s) =>
     set({
       sessao: s,
-      user: s ? { name: s.nome, plan: s.plano, avatar: (s.nome[0] ?? 'V').toUpperCase(), email: s.email } : null,
+      user: s
+        ? {
+            name: s.nome,
+            plan: s.plano,
+            avatar: (s.nome[0] ?? 'V').toUpperCase(),
+            email: s.email,
+            horasRestantes: s.horasRestantes,
+            papel: s.papel,
+          }
+        : null,
     }),
   installPack: (id) => {
     set((s) => ({ installedPacks: [...new Set([...s.installedPacks, id])] }));

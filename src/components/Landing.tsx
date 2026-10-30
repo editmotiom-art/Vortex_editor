@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { lerConfig } from '../lib/config';
 import { useUI } from '../store/ui';
+import { lerConfigNuvem, type ConfigNuvem } from '../lib/contas';
 
 /**
  * PÁGINA DE VENDAS (pública, em #planos ou na primeira visita)
@@ -44,24 +45,66 @@ const RECURSOS = [
 ];
 
 const PASSOS = [
-  { n: '01', t: 'Crie a conta', d: 'Só nome, e-mail e senha. O plano grátis abre o editor na hora.' },
+  { n: '01', t: 'Crie a conta', d: 'Só nome, e-mail e senha. A conta nova já ganha horas de teste para experimentar tudo.' },
   { n: '02', t: 'Monte na timeline', d: 'Arraste arquivos, use a biblioteca, cole um link do Drive ou dê duplo clique num item do acervo.' },
   { n: '03', t: 'Confira e exporte', d: 'Prévia do arquivo apareceu? Então baixe — vídeo, imagem ou só o áudio.' },
 ];
 
 export function Landing({ onEntrar, onCriar }: { onEntrar: () => void; onCriar: () => void }) {
   const [cfg] = useState(() => lerConfig());
-  const planos = cfg.planos.filter((p) => p.ativo);
+  /** preços e horas vêm do BANCO (o que o admin configurou), não do navegador */
+  const [nuvem, setNuvem] = useState<ConfigNuvem | null>(null);
+  useEffect(() => {
+    lerConfigNuvem().then(setNuvem);
+  }, []);
+
+  const planos = useMemo(() => {
+    const horas = nuvem?.planos_horas ?? { teste: 1, pro: 24, studio: 168 };
+    const precos = nuvem?.precos_centavos ?? { pro: 2990, studio: 8990 };
+    const horasTxt = (h?: number) => {
+      const v = Number(h ?? 0);
+      return v >= 24 ? `${Math.round(v / 24)} dia(s) (${v}h)` : `${v}h`;
+    };
+    return [
+      {
+        id: 'pro',
+        nome: 'Pro',
+        preco: Number(precos.pro ?? 2990) / 100,
+        periodo: horasTxt(horas.pro),
+        destaque: true,
+        itens: [
+          'Editor completo (timeline, keyframes, efeitos)',
+          'Acervo: templates, fundos, músicas, SFX',
+          'Baixar conteúdo: link de vídeo e Drive',
+          'Legenda automática e IA de criação',
+          'Exportação até 1080p sem marca',
+        ],
+      },
+      {
+        id: 'studio',
+        nome: 'Studio',
+        preco: Number(precos.studio ?? 8990) / 100,
+        periodo: horasTxt(horas.studio),
+        destaque: false,
+        itens: [
+          'Tudo do Pro',
+          'Exportação 4K',
+          'Prioridade na fila de IA e legendas',
+          'Packs do Editor incluídos',
+          'Suporte direto com a equipe',
+        ],
+      },
+    ];
+  }, [nuvem]);
+
+  const horasTeste = Number(nuvem?.horas_teste_novo_usuario ?? 1);
   const irParaPlanos = () => {
     document.getElementById('planos')?.scrollIntoView({ behavior: 'smooth' });
   };
   const abrirCheckout = (id: string) => {
-    if (id === 'free') onCriar();
-    else {
-      localStorage.setItem('vortex.planoEscolhido', id);
-      onCriar();
-      setTimeout(() => useUI.getState().openModal('checkout'), 400);
-    }
+    localStorage.setItem('vortex.planoEscolhido', id);
+    onCriar();
+    setTimeout(() => useUI.getState().openModal('checkout'), 400);
   };
 
   useEffect(() => {
@@ -103,14 +146,14 @@ export function Landing({ onEntrar, onCriar }: { onEntrar: () => void; onCriar: 
           </p>
           <div className="lp-acoes">
             <button className="btn primary lg" onClick={onCriar}>
-              Começar grátis
+              Criar conta e testar
             </button>
             <button className="btn ghost lg" onClick={irParaPlanos}>
               Ver planos
             </button>
           </div>
           <div className="lp-provas">
-            <span>✓ Plano grátis para sempre</span>
+            <span>✓ {horasTeste > 0 ? `${horasTeste >= 24 ? `${Math.round(horasTeste / 24)} dia(s)` : `${horasTeste}h`} de teste ao criar a conta` : 'Sem instalação'}</span>
             <span>✓ Sem instalação</span>
             <span>✓ Funciona no celular</span>
           </div>
@@ -200,15 +243,18 @@ export function Landing({ onEntrar, onCriar }: { onEntrar: () => void; onCriar: 
 
       <section id="planos" className="lp-secao">
         <h2>Planos</h2>
-        <p className="lp-sub">Cancele quando quiser. O plano grátis não pede cartão.</p>
+        <p className="lp-sub">
+          O acesso é por <b>horas de uso</b> — quem trabalha muito compra mais horas, quem usa pouco paga menos. O
+          tempo que você já tem é somado ao novo.
+        </p>
         <div className="lp-planos">
           {planos.map((p) => (
             <article key={p.id} className={`lp-plano${p.destaque ? ' destaque' : ''}`}>
               {p.destaque && <span className="lp-plano-selo">MAIS ESCOLHIDO</span>}
               <h3>{p.nome}</h3>
               <div className="lp-preco">
-                {p.preco === 0 ? 'R$ 0' : `R$ ${p.preco.toFixed(2).replace('.', ',')}`}
-                <small>/ {p.periodo}</small>
+                {`R$ ${p.preco.toFixed(2).replace('.', ',')}`}
+                <small>/ {p.periodo} de acesso</small>
               </div>
               <ul>
                 {p.itens.map((i) => (
@@ -216,14 +262,14 @@ export function Landing({ onEntrar, onCriar }: { onEntrar: () => void; onCriar: 
                 ))}
               </ul>
               <button className={`btn ${p.destaque ? 'primary' : ''}`} style={{ width: '100%' }} onClick={() => abrirCheckout(p.id)}>
-                {p.preco === 0 ? 'Começar grátis' : `Assinar ${p.nome}`}
+                {`Quero ${p.nome}`}
               </button>
             </article>
           ))}
         </div>
         <p className="lp-nota">
-          Pagamento processado pelo provedor configurado no painel administrativo (Pix, cartão ou checkout externo).
-          Os valores acima são exatamente os que o administrador define em <code>#admin → Planos e preços</code>.
+          Pedido de pagamento com PIX: as horas entram na conta assim que o pagamento é confirmado (ninguém ganha
+          plano sem pagar). Preços e horas são os definidos no painel administrativo, em <code>#admin → Horas de plano</code>.
         </p>
       </section>
 
@@ -255,8 +301,9 @@ export function Landing({ onEntrar, onCriar }: { onEntrar: () => void; onCriar: 
           <div>
             <h3>Privacidade</h3>
             <p>
-              A conta usa nome, e-mail e senha (armazenada como hash). Links de Drive que você informa são lidos apenas
-              para listar as mídias que você escolher puxar.
+              A conta usa nome, e-mail e senha (bcrypt, no servidor — nem nós lemos a senha). Planos e pagamentos
+              ficam no banco. Links de Drive que você informa são lidos apenas para listar as mídias que você escolher
+              puxar. O histórico de downloads fica na sua conta, para você achar tudo depois.
             </p>
           </div>
           <div>
@@ -269,8 +316,8 @@ export function Landing({ onEntrar, onCriar }: { onEntrar: () => void; onCriar: 
           <div>
             <h3>Assinatura</h3>
             <p>
-              O plano é mensal e renovado até o cancelamento. Ao cancelar, o acesso aos recursos pagos continua até o fim
-              do período já pago — seus projetos permanecem seus.
+              O acesso é comprado por horas e não renova sozinho: acabou o tempo, o editor continua abrindo, mas
+              exportar e baixar pedem novas horas. Seus projetos permanecem seus.
             </p>
           </div>
         </div>

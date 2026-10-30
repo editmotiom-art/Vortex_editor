@@ -1,13 +1,15 @@
 import { useUI } from '../store/ui';
 import { lerConfig } from '../lib/config';
+import { tempoHumano } from '../lib/contas';
+import { BarraPlano } from './BarraPlano';
 
 /**
- * PORTÃO DE PLANO DO EDITOR
+ * PORTÃO DE HORAS DO EDITOR
  * ------------------------------------------------------------
- * Regra do produto: o editor abre no plano Free (para conhecer), mas as
- * funções pagas — exportar, voz, acervo de packs e Baixa Tudo — pedem plano.
- * Quem ainda não assinou vê este aviso com o preço que o administrador definiu
- * em #admin → Planos e preços, e vai direto para o checkout.
+ * Não existe plano grátis: cada conta recebe uma quantidade de HORAS (o admin
+ * define no cadastro — 1h, 7h, 24h…). Enquanto houver horas o editor inteiro
+ * funciona. Quando o relógio zera, exportar, acervo, Baixa Tudo e IA pedem
+ * renovação — e quem decide se há horas é o servidor, não o navegador.
  */
 export function AvisoPlano({
   recurso,
@@ -19,6 +21,7 @@ export function AvisoPlano({
   onFechar: () => void;
 }) {
   const { openModal, sessao } = useUI();
+  const semHoras = !!sessao && sessao.papel !== 'admin' && (sessao.horasRestantes ?? 0) <= 0;
   const planos = lerConfig().planos.filter((p) => p.ativo && p.id !== 'free');
   const destaque = planos.find((p) => p.destaque) ?? planos[0];
   const preco = destaque ? `R$ ${destaque.preco.toFixed(2).replace('.', ',')} / ${destaque.periodo}` : '';
@@ -28,15 +31,28 @@ export function AvisoPlano({
     <div className="overlay" onClick={onFechar}>
       <div className="modal plano-portao" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 460 }}>
         <div className="modal-head">
-          <b>🔒 {recurso} é do plano {nome}</b>
+          <b>🔒 {recurso} precisa de horas de plano</b>
           <button onClick={onFechar} aria-label="Fechar">
             ✕
           </button>
         </div>
         <div style={{ padding: '4px 2px 0' }}>
           <p style={{ fontSize: 13, color: 'var(--txt-1)', margin: '0 0 10px' }}>
-            Você está no plano <b>Free</b>. {detalhe ?? 'Assine para liberar esta função e exportar seus vídeos sem marca.'}
+            {semHoras ? (
+              <>
+                Seu tempo de plano <b>acabou</b>. {detalhe ?? 'Recarregue para liberar esta função e exportar seus vídeos.'}
+              </>
+            ) : (
+              <>
+                Esta função consome plano. {detalhe ?? 'Adicione horas para liberar e exportar seus vídeos.'}
+              </>
+            )}
           </p>
+          {sessao && sessao.papel !== 'admin' && (
+            <div style={{ marginBottom: 12 }}>
+              <BarraPlano />
+            </div>
+          )}
           {destaque && (
             <div
               style={{
@@ -49,6 +65,11 @@ export function AvisoPlano({
             >
               <div style={{ fontSize: 12, color: 'var(--txt-2)' }}>Plano {nome}</div>
               <div style={{ fontSize: 22, fontWeight: 900, margin: '2px 0 6px' }}>{preco}</div>
+              {sessao && sessao.papel !== 'admin' && (
+                <div style={{ fontSize: 11.5, color: 'var(--txt-2)', marginBottom: 6 }}>
+                  Restam {tempoHumano(sessao.segundosRestantes)} de {Math.round(sessao.horasRestantes * 10) / 10}h
+                </div>
+              )}
               <ul style={{ margin: 0, paddingLeft: 16, fontSize: 12, lineHeight: 1.7, color: 'var(--txt-1)' }}>
                 {destaque.itens.slice(0, 4).map((i) => (
                   <li key={i}>{i}</li>
@@ -67,7 +88,7 @@ export function AvisoPlano({
             Ver planos e assinar
           </button>
           <button className="btn ghost" style={{ width: '100%' }} onClick={onFechar}>
-            Continuar testando o plano Free
+            Continuar sem exportar
           </button>
           {sessao && (
             <p style={{ fontSize: 11, color: 'var(--txt-2)', margin: '10px 0 0', textAlign: 'center' }}>
@@ -80,5 +101,5 @@ export function AvisoPlano({
   );
 }
 
-/** true quando a conta ainda está no plano grátis */
-export const noPlanoGratis = (plano?: string): boolean => !plano || plano === 'free';
+/** true quando a conta está sem horas (não há mais "plano grátis") */
+export const noPlanoGratis = (plano?: string): boolean => !plano || plano === 'nenhum';

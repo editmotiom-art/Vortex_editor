@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useEditor } from '../store/editor';
 import { useUI } from '../store/ui';
-import { mudarPlano, sair as sairConta } from '../lib/contas';
+import { sair as sairConta, tempoHumano } from '../lib/contas';
+import { BarraPlano } from './BarraPlano';
 import { PACKS } from '../data/library';
 import { CatalogoDrive } from './PacksDrive';
 import { PacksMonkey } from './PacksMonkey';
@@ -428,11 +429,10 @@ export function AccountModal() {
     openModal('checkout');
   };
 
+  /** não existe "cancelar plano" no navegador: as horas compradas continuam
+   *  valendo até acabar (quem revoga é o admin, no painel) */
   const desligar = () => {
-    if (!sessao) return;
-    mudarPlano(sessao.contaId, 'free');
-    setSessao({ ...sessao, plano: 'free' });
-    toast('Voltou para o plano Free', 'default');
+    toast('Seu plano por horas não tem renovação automática: ele termina sozinho quando as horas acabam.', 'default');
   };
 
   const sairDaConta = () => {
@@ -454,14 +454,16 @@ export function AccountModal() {
           <div style={{ fontWeight: 800, fontSize: 14 }}>{user?.name}</div>
           <div style={{ fontSize: 11.5, color: 'var(--txt-2)' }}>
             Plano atual:{' '}
-            {user && user.plan !== 'free' ? (
-              <span className="pill paid">{user.plan.toUpperCase()}</span>
+            {user && (user.papel === 'admin' || user.horasRestantes > 0) ? (
+              <span className="pill paid">{user.plan === 'nenhum' ? 'ADMIN' : user.plan.toUpperCase()}</span>
             ) : (
-              <span className="pill free">FREE</span>
+              <span className="pill free">SEM HORAS</span>
             )}
           </div>
         </div>
       </div>
+
+      <BarraPlano />
 
       <div className="grid-2">
         <div className="card">
@@ -511,9 +513,9 @@ export function AccountModal() {
               <span>✓</span> Templates e LUTs novos todo mês
             </div>
           </div>
-          {user && user.plan !== 'free' ? (
+          {user && (user.papel === 'admin' || user.horasRestantes > 0) ? (
             <button className="btn" style={{ width: '100%', marginTop: 10 }} onClick={desligar}>
-              Cancelar assinatura
+              Como funciona o cancelamento
             </button>
           ) : (
             <button className="btn primary" style={{ width: '100%', marginTop: 10 }} onClick={virarPro}>

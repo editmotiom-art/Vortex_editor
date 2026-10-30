@@ -23,6 +23,27 @@ p.on('pageerror', (e) => errs.push(e.message.slice(0, 160)));
 const r = [];
 const ok = (nome, cond, extra = '') => r.push({ nome, ok: Boolean(cond), extra });
 
+
+/* ------------------------------------------------------------------
+   BANCO DE VERDADE: o plano vem do servidor (Supabase). Estas funções
+   usam a conta de admin, exatamente como o painel em #admin → Clientes.
+   ------------------------------------------------------------------ */
+const K_SUPA =
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB1ZnVlYWxobW55bGxycWhvbHllIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTMyMDI3NTMsImV4cCI6MjEwODc3ODc1M30.-clD1uKofTBHIM_-YeF2BKTbPJL_Y-_mKLGhCOyEtcM';
+const rpcBanco = async (nome, args = {}) => {
+  const resp = await fetch(`https://pufuealhmnyllrqholye.supabase.co/rest/v1/rpc/${nome}`, {
+    method: 'POST',
+    headers: { apikey: K_SUPA, authorization: `Bearer ${K_SUPA}`, 'content-type': 'application/json' },
+    body: JSON.stringify(args),
+  });
+  return resp.json().catch(() => ({}));
+};
+const adminDoBanco = async () => rpcBanco('vortex_entrar', { p_email: 'aliceoliveirade22@gmail.com', p_senha: '01082020' });
+const idDoCliente = async (token, email) => {
+  const l = await rpcBanco('vortex_admin_listar', { p_token: token });
+  return (l.usuarios ?? []).find((u) => u.email === email)?.id ?? null;
+};
+
 const fechar = async () => {
   for (let i = 0; i < 4; i += 1) {
     if (!(await p.locator('.overlay').count())) return;
@@ -40,28 +61,33 @@ await p.fill('input[type=password]', 'vortex2026');
 await p.click('button:has-text("Criar conta e abrir o editor")');
 await p.waitForTimeout(1800);
 
-/* ============ 0. PORTÃO DE PLANO (antes de assinar) ============ */
-await p.locator('.topbar button:has-text("Exportar")').click();
-await p.waitForTimeout(800);
-const portaoApareceu = await p.locator('.plano-portao').count();
-ok('plano Free: exportar pede assinatura', portaoApareceu, portaoApareceu ? 'aviso exibido' : 'liberou');
-if (portaoApareceu) {
-  ok('aviso mostra o preço do painel', /R\$/.test(await p.locator('.plano-portao').innerText()));
-  await p.locator('.plano-portao button:has-text("Ver planos e assinar")').click();
-  await p.waitForTimeout(1000);
-  ok('aviso leva ao checkout', await p.locator('.modal:has-text("Assinar")').count());
-  await p.locator('.overlay .modal-head button').last().click({ force: true }).catch(() => {});
-  await p.waitForTimeout(400);
+/* ============ 0. PORTÃO DE HORAS ============ */
+/* não existe mais "plano grátis": conta nova nasce com horas de TESTE
+   (o admin define em #admin → Horas de plano). O portão só aparece quando
+   as horas acabam — e quem decide isso é o banco. */
+{
+  const emailNovo = await p.evaluate(() => JSON.parse(localStorage.getItem('vortex.sessao.v1') ?? 'null')?.email ?? null);
+  const adm0 = await rpcBanco('vortex_entrar', { p_email: 'aliceoliveirade22@gmail.com', p_senha: '01082020' });
+  const lista0 = await rpcBanco('vortex_admin_listar', { p_token: adm0.token });
+  const alvo0 = (lista0.usuarios ?? []).find((u) => u.email === emailNovo);
+  ok('conta nova nasce com horas de teste do admin', (alvo0?.plano?.horas_restantes ?? 0) > 0, `${alvo0?.plano?.horas_restantes ?? 0}h`);
+  // admin zera as horas → o portão tem que aparecer
+  await rpcBanco('vortex_admin_revogar', { p_token: adm0.token, p_usuario: alvo0.id });
+  await p.reload({ waitUntil: 'networkidle' });
+  await p.waitForTimeout(2500);
+  await p.locator('.topbar button', { hasText: /^Exportar$/ }).click();
+  await p.waitForTimeout(900);
+  const portaoApareceu = await p.locator('.plano-portao').count();
+  ok('sem horas: exportar mostra o portão', portaoApareceu, portaoApareceu ? 'aviso exibido' : 'liberou (!)');
+  if (portaoApareceu) {
+    ok('portão mostra a barra de horas zerada', /0 min|tempo esgotado|esgotado/i.test(await p.locator('.plano-portao').innerText()));
+    await p.locator('.plano-portao button:has-text("Ver planos e assinar")').click();
+    await p.waitForTimeout(1000);
+    ok('portão leva ao pedido de pagamento (checkout)', await p.locator('.modal:has-text("horas de plano")').count());
+    await p.locator('.overlay .modal-head button').last().click({ force: true }).catch(() => {});
+    await p.waitForTimeout(400);
+  }
 }
-// assinatura aprovada (o teste das funções pagas roda com plano Pro)
-await p.evaluate(() => {
-  const contas = JSON.parse(localStorage.getItem('vortex.contas.v1') ?? '[]');
-  if (contas[0]) { contas[0].plano = 'pro'; localStorage.setItem('vortex.contas.v1', JSON.stringify(contas)); }
-  const s = JSON.parse(localStorage.getItem('vortex.sessao.v1') ?? '{}');
-  localStorage.setItem('vortex.sessao.v1', JSON.stringify({ ...s, plano: 'pro' }));
-});
-await p.reload({ waitUntil: 'networkidle' });
-await p.waitForTimeout(2200);
 
 /* ================= 1. VOZ ================= */
 await p.locator('.topbar button:has-text("Legenda")').first().click({ force: true });
@@ -163,8 +189,24 @@ await p.screenshot({ path: `${PASTA}/04-chat-imagem.png` });
 await fechar();
 
 /* ================= 3. PACK DO EDITOR ================= */
-await p.locator('.topbar button:has-text("Conteúdo")').first().click({ force: true });
-await p.waitForTimeout(700);
+await p.locator('.topbar button', { hasText: /^Conteúdo$/ }).first().click({ force: true });
+await p.waitForTimeout(900);
+const abriuConteudo = await p.locator('.tab:has-text("Pack do Editor")').count();
+if (!abriuConteudo) {
+  // portão de horas aberto: libera mais horas e tenta de novo
+  const email = await p.evaluate(() => JSON.parse(localStorage.getItem('vortex.sessao.v1') ?? 'null')?.email ?? null);
+  const adm2 = await rpcBanco('vortex_entrar', { p_email: 'aliceoliveirade22@gmail.com', p_senha: '01082020' });
+  const l2 = await rpcBanco('vortex_admin_listar', { p_token: adm2.token });
+  const alvo2 = (l2.usuarios ?? []).find((u) => u.email === email);
+  if (alvo2) await rpcBanco('vortex_admin_set_horas', { p_token: adm2.token, p_usuario: alvo2.id, p_horas: 24, p_tipo: 'pro', p_motivo: 'teste' });
+  await p.locator('.plano-portao button:has-text("Ver planos e assinar")').click().catch(() => {});
+  await p.waitForTimeout(800);
+  await p.locator('.overlay .modal-head button').last().click({ force: true }).catch(() => {});
+  await p.reload({ waitUntil: 'networkidle' });
+  await p.waitForTimeout(2500);
+  await p.locator('.topbar button', { hasText: /^Conteúdo$/ }).first().click({ force: true });
+  await p.waitForTimeout(900);
+}
 await p.locator('.tab:has-text("Pack do Editor")').click();
 await p.waitForTimeout(900);
 const nPacks = await p.locator('.pk-card').count();
@@ -186,11 +228,17 @@ ok('abre a pasta real no Drive', arquivosPack > 0 || subpastas > 0, `${arquivosP
 await p.screenshot({ path: `${PASTA}/06-pack-pasta-drive.png` });
 await fechar();
 
-/* ================= 4. BAIXA TUDO ================= */
-await p.locator('.topbar button:has-text("Baixa Tudo")').first().click({ force: true });
-await p.waitForTimeout(600);
+/* ================= 4. BAIXAR CONTEÚDO (ferramenta única) ================= */
+await p.locator('.topbar button', { hasText: /^⬇ Baixar conteúdo$/ }).first().click({ force: true });
+await p.waitForTimeout(700);
 await p.locator('.bt-input').fill('https://www.youtube.com/watch?v=jNQXAC9IVRw');
-await p.locator('.baixa-tudo button:has-text("Baixar")').first().click();
+await p.locator('.baixar-conteudo button:has-text("Analisar link")').first().click();
+for (let i = 0; i < 30; i += 1) {
+  await p.waitForTimeout(1000);
+  if (await p.locator('.bc-item').count()) break;
+}
+ok('reconhece o link e lista a mídia (YouTube, Drive ou página)', (await p.locator('.bc-item').count()) > 0, `${await p.locator('.bc-item').count()} item(s)`);
+await p.locator('.baixar-conteudo button.btn.primary:has-text("⬇ Baixar")').first().click();
 let btTxt = '';
 for (let i = 0; i < 70; i += 1) {
   await p.waitForTimeout(1000);

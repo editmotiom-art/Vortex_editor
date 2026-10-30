@@ -24,6 +24,41 @@ const ok = (nome, cond, extra = '') => {
 };
 const espera = (p, ms) => p.waitForTimeout(ms);
 
+/* ------------------------------------------------------------------
+   PLANO DE VERDADE (banco): dá horas pela conta de admin, como o painel
+   faz em #admin → Clientes. Nada de localStorage: o que vale é o servidor.
+   ------------------------------------------------------------------ */
+const K_SUPA =
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB1ZnVlYWxobW55bGxycWhvbHllIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTMyMDI3NTMsImV4cCI6MjEwODc3ODc1M30.-clD1uKofTBHIM_-YeF2BKTbPJL_Y-_mKLGhCOyEtcM';
+const rpcBanco = async (nome, args = {}) => {
+  const resp = await fetch(`https://pufuealhmnyllrqholye.supabase.co/rest/v1/rpc/${nome}`, {
+    method: 'POST',
+    headers: { apikey: K_SUPA, authorization: `Bearer ${K_SUPA}`, 'content-type': 'application/json' },
+    body: JSON.stringify(args),
+  });
+  return resp.json().catch(() => ({}));
+};
+/** dá horas de plano para o cliente logado na página (via admin do banco) */
+const darHorasNoBanco = async (pagina, horas, tipo = 'pro') => {
+  const email = await pagina.evaluate(() => {
+    const s = JSON.parse(localStorage.getItem('vortex.sessao.v1') ?? 'null');
+    return s?.email ?? null;
+  });
+  if (!email) return { ok: false, erro: 'sem sessão na página' };
+  const adm = await rpcBanco('vortex_entrar', { p_email: 'aliceoliveirade22@gmail.com', p_senha: '01082020' });
+  const lista = await rpcBanco('vortex_admin_listar', { p_token: adm.token });
+  const alvo = (lista.usuarios ?? []).find((u) => u.email === email);
+  if (!alvo) return { ok: false, erro: 'cliente não está no banco' };
+  const r = await rpcBanco('vortex_admin_set_horas', {
+    p_token: adm.token,
+    p_usuario: alvo.id,
+    p_horas: horas,
+    p_tipo: tipo,
+    p_motivo: 'teste automatizado',
+  });
+  return r;
+};
+
 const browser = await chromium.launch({ channel: 'chromium', args: ['--autoplay-policy=no-user-gesture-required'] });
 
 /* ============ 1. CELULAR: landing rola de verdade ============ */
@@ -76,54 +111,59 @@ await page.click('button:has-text("Criar conta e abrir o editor")');
 await espera(page, 2400);
 ok('cadastro abre o editor', await page.locator('.topbar').count());
 
-await page.locator('.topbar button:has-text("Exportar")').click();
+/* sem horas: zera no banco (como o admin faria) e tenta exportar */
+{
+  const emailNovo = await page.evaluate(() => JSON.parse(localStorage.getItem('vortex.sessao.v1') ?? 'null')?.email ?? null);
+  const adm0 = await rpcBanco('vortex_entrar', { p_email: 'aliceoliveirade22@gmail.com', p_senha: '01082020' });
+  const lista0 = await rpcBanco('vortex_admin_listar', { p_token: adm0.token });
+  const alvo0 = (lista0.usuarios ?? []).find((u) => u.email === emailNovo);
+  await rpcBanco('vortex_admin_revogar', { p_token: adm0.token, p_usuario: alvo0.id });
+  await page.reload({ waitUntil: 'networkidle' });
+  await espera(page, 2500);
+}
+await page.locator('.topbar button', { hasText: /^Exportar$/ }).click();
 await espera(page, 900);
 const temPortao = await page.locator('.plano-portao').count();
-ok('plano FREE: exportar pede assinatura (portão)', temPortao, temPortao ? 'aviso exibido' : 'liberou sem plano');
+ok('sem horas: exportar pede plano (portão)', temPortao, temPortao ? 'aviso exibido' : 'liberou sem plano');
 await page.screenshot({ path: `${PASTA}/02-portao-plano.png` });
 if (temPortao) {
   await page.locator('.plano-portao button:has-text("Ver planos e assinar")').click();
-  await espera(page, 1200);
+  await espera(page, 1500);
 }
-ok('portão leva ao checkout', await page.locator('.modal:has-text("Assinar")').count());
+ok('portão leva ao pedido de pagamento', await page.locator('.modal:has-text("horas de plano")').count());
 
-/* ============ 3. CHECKOUT: PIX E CARTÃO ============ */
-const etapaPlano = await page.locator('.modal:has-text("Assinar")').innerText().catch(() => '');
-ok('checkout mostra planos e preço', /R\$/.test(etapaPlano), etapaPlano.split('\n').find((l) => /R\$/.test(l)) ?? '');
+/* ============ 3. PEDIDO DE PAGAMENTO (nada é liberado sem pagar) ============ */
+const etapaPlano = await page.locator('.modal').first().innerText().catch(() => '');
+ok('checkout mostra planos, horas e preço', /R\$/.test(etapaPlano) && /h de acesso|dia/i.test(etapaPlano), etapaPlano.split('\n').find((l) => /R\$/.test(l)) ?? '');
 await page.screenshot({ path: `${PASTA}/03-checkout-planos.png` });
-// escolhe o plano em destaque e avança
-await page.locator('.modal button', { hasText: /Continuar com|Assinar Pro|Assinar/ }).last().click().catch(() => {});
+await page.locator('.modal button', { hasText: /^Continuar com/ }).last().click().catch(() => {});
 await espera(page, 900);
-await espera(page, 900);
-// dados
 const campos = await page.locator('.modal input').count();
-ok('checkout pede dados do cliente', campos >= 3, `${campos} campos`);
-await page.locator('.modal input').nth(0).fill('Alice Oliveira').catch(() => {});
-await page.locator('.modal input').nth(1).fill('alice@vortex.dev').catch(() => {});
-await page.locator('.modal input').nth(2).fill('12345678909').catch(() => {});
-await page.locator('.modal button:has-text("Ir para pagamento")').click().catch(() => {});
-await espera(page, 800);
-await espera(page, 900);
-await page.screenshot({ path: `${PASTA}/04-checkout-dados.png` });
-// pix
-const temPix = await page.locator('.modal button:has-text("PIX"), .modal:has-text("PIX")').count();
-ok('checkout oferece Pix', temPix);
-await page.screenshot({ path: `${PASTA}/05-checkout-pix.png` });
-// cartão
-const botaoCartao = page.locator('.modal button:has-text("Cartão")').first();
-if (await botaoCartao.count()) await botaoCartao.click().catch(() => {});
-await espera(page, 600);
-await page.screenshot({ path: `${PASTA}/06-checkout-cartao.png` });
-ok('checkout oferece cartão', await page.locator('.modal:has-text("Cartão")').count());
+ok('checkout pede os dados do cliente', campos >= 2, `${campos} campos`);
+await page.locator('.modal button', { hasText: /Gerar pedido de pagamento/ }).click().catch(() => {});
+await espera(page, 3000);
+const textoPedido = await page.locator('.modal').first().innerText().catch(() => '');
+ok('pedido gerado com referência e aviso de "aguardando pagamento"', /VX|aguardando/i.test(textoPedido), (textoPedido.match(/VX[A-Z0-9]+/) ?? [''])[0]);
+ok('o sistema avisa que as horas NÃO são liberadas automaticamente', /não.*liberad|assim que a equipe confirmar/i.test(textoPedido));
+await page.screenshot({ path: `${PASTA}/03b-pedido-pagamento.png` });
 
-/* ============ 4. PAINEL DO CLIENTE ============ */
-await page.keyboard.press('Escape').catch(() => {});
+/* pedido pendente não muda nada: exportar continua bloqueado */
 await page.locator('.overlay .modal-head button').last().click({ force: true }).catch(() => {});
-await espera(page, 600);
-await page.locator('.topbar button:has-text("FREE"), .topbar .user, .topbar button:has-text("Alice")').first().click().catch(() => {});
+await espera(page, 700);
+await page.locator('.topbar button', { hasText: /^Exportar$/ }).click();
 await espera(page, 900);
-ok('painel do cliente abre', await page.locator('.cliente-shell, .modal:has-text("plano")').count());
-await page.screenshot({ path: `${PASTA}/07-painel-cliente.png` });
+ok('depois do pedido (sem pagar) exportar continua bloqueado', (await page.locator('.plano-portao').count()) > 0);
+await page.locator('.plano-portao button:has-text("Continuar sem exportar")').click().catch(() => {});
+await espera(page, 500);
+
+/* painel do cliente abre com a barra de horas */
+await page.locator('.topbar button[title="Conta e assinatura"]').click().catch(() => {});
+await espera(page, 1500);
+ok('painel do cliente abre', await page.locator('.pc-modal').count());
+ok('painel mostra a barra de horas do plano', await page.locator('.pc-modal .barra-plano').count());
+await page.screenshot({ path: `${PASTA}/04-painel-cliente.png` });
+await page.locator('.overlay .modal-head button').last().click({ force: true }).catch(() => {});
+await espera(page, 500);
 
 /* ============ 5. VOZ, SKILLS, TEXTO ============ */
 await page.locator('.overlay .modal-head button').last().click({ force: true }).catch(() => {});
@@ -159,16 +199,9 @@ await page.screenshot({ path: `${PASTA}/09-chat-roteiro.png` });
 await page.locator('.overlay .modal-head button').last().click({ force: true }).catch(() => {});
 await espera(page, 500);
 
-/* ============ 6. EXPORTAÇÃO REAL (assinando o plano) ============ */
-await page.evaluate(() => {
-  // assinatura aprovada (o mesmo que o checkout faz ao confirmar o pagamento)
-  const cfg = JSON.parse(localStorage.getItem('vortex.config.v1') ?? '{}');
-  const contas = JSON.parse(localStorage.getItem('vortex.contas.v1') ?? '[]');
-  if (contas[0]) { contas[0].plano = 'pro'; localStorage.setItem('vortex.contas.v1', JSON.stringify(contas)); }
-  const sess = JSON.parse(localStorage.getItem('vortex.sessao.v1') ?? '{}');
-  if (sess) localStorage.setItem('vortex.sessao.v1', JSON.stringify({ ...sess, plano: 'pro' }));
-  void cfg;
-});
+/* ============ 6. EXPORTAÇÃO REAL (plano vindo do BANCO) ============ */
+const deuHoras = await darHorasNoBanco(page, 24, 'pro');
+ok('admin do banco dá 24h de plano ao cliente', deuHoras?.ok === true, deuHoras?.plano?.horas_restantes ? `${deuHoras.plano.horas_restantes}h` : (deuHoras?.erro ?? ''));
 await page.reload({ waitUntil: 'networkidle' });
 await espera(page, 2200);
 // importa um clipe e exporta
@@ -205,7 +238,7 @@ await page.locator('.overlay .modal-head button').last().click({ force: true }).
 await espera(page, 500);
 
 /* ============ 7. ACERVO / PACKS / BAIXA TUDO / EXTRAIR ============ */
-await page.locator('.topbar button:has-text("Conteúdo")').click({ force: true });
+await page.locator('.topbar button', { hasText: /^Conteúdo$/ }).click({ force: true });
 await espera(page, 800);
 await page.locator('text=Pack do Editor').first().click({ force: true }).catch(() => {});
 await espera(page, 2500);
@@ -215,14 +248,21 @@ await page.screenshot({ path: `${PASTA}/11-packs.png` });
 await page.locator('.overlay .modal-head button').last().click({ force: true }).catch(() => {});
 await espera(page, 500);
 
-await page.locator('.topbar button:has-text("Baixa Tudo")').click({ force: true });
+await page.locator('.topbar button', { hasText: /^⬇ Baixar conteúdo$/ }).click({ force: true });
 await espera(page, 900);
-ok('Baixa Tudo abre com plano Pro', await page.locator('.overlay:has-text("Baixa")').count());
-await page.screenshot({ path: `${PASTA}/12-baixa-tudo.png` });
+ok('Baixar conteúdo (ferramenta única) abre', await page.locator('.baixar-conteudo').count());
+await page.locator('.bt-input').fill('https://www.youtube.com/watch?v=jNQXAC9IVRw');
+await page.locator('.baixar-conteudo button:has-text("Analisar link")').click();
+for (let i = 0; i < 30; i += 1) {
+  await espera(page, 1000);
+  if (await page.locator('.bc-item').count()) break;
+}
+ok('link do YouTube é reconhecido e listado', (await page.locator('.bc-item').count()) > 0, `${await page.locator('.bc-item').count()} item(s)`);
+await page.screenshot({ path: `${PASTA}/12-baixar-conteudo.png` });
 await page.locator('.overlay .modal-head button').last().click({ force: true }).catch(() => {});
 await espera(page, 500);
 
-await page.locator('.topbar button:has-text("Extrair")').click({ force: true });
+await page.locator('.topbar button', { hasText: /^⤓ Acervo$/ }).click({ force: true });
 await espera(page, 900);
 ok('Extrair de site abre', await page.locator('.overlay').count());
 await page.locator('.overlay .modal-head button').last().click({ force: true }).catch(() => {});
@@ -275,9 +315,11 @@ await espera(anon, 900);
 const pedeLogin = await anon.locator('input[type=password]').count();
 const vePainel = await anon.locator('.admin-nav, h2:has-text("Visão geral")').count();
 seguranca.push(['admin sem senha mostra conteúdo', vePainel && !pedeLogin ? 'FALHA' : 'bloqueado']);
-// localStorage de outra conta não vira admin
+// forjar conta/plano no armazenamento do navegador não vale nada
 await anon.evaluate(() => {
-  localStorage.setItem('vortex.admin.v1', JSON.stringify({ email: 'invasor@x.com' }));
+  localStorage.setItem('vortex.contas.v1', JSON.stringify([{ id: 'x', nome: 'Invasor', email: 'invasor@x.com', plano: 'studio' }]));
+  localStorage.setItem('vortex.sessao.v1', JSON.stringify({ contaId: 'x', nome: 'Invasor', email: 'invasor@x.com', plano: 'studio', token: 'falso', horasRestantes: 9999, segundosRestantes: 999999 }));
+  localStorage.setItem('vortex.token.v1', 'falso');
 });
 await anon.reload({ waitUntil: 'networkidle' });
 await espera(anon, 900);

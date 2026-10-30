@@ -45,7 +45,7 @@ const iconeTipo = (t: string) => (t === 'video' ? '▶' : t === 'audio' ? '♪' 
 
 export function PacksMonkey() {
   const { toast } = useUI();
-  const plano = useUI((s) => s.sessao?.plano ?? 'free');
+  const plano = useUI((s) => s.sessao?.plano ?? 'nenhum');
   const addAsset = useEditor((s) => s.addAsset);
 
   const [secao, setSecao] = useState<string>('Todas');
@@ -67,7 +67,7 @@ export function PacksMonkey() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const cotas = COTAS[plano] ?? COTAS.free;
+  const cotas = COTAS[plano] ?? COTAS.nenhum;
 
   const lista = useMemo(() => {
     const base = busca.trim() ? buscarPacks(busca) : buscarPacks('');

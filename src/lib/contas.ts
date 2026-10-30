@@ -1,186 +1,518 @@
 /**
- * CONTAS E SESSÃO
+ * CONTAS, SESSÃO E PLANO POR HORAS
  * ------------------------------------------------------------
- * Camada de autenticação do Vortex.
+ * REGRA DE OURO: o navegador não decide plano.
  *
- * Hoje roda 100% no navegador (localStorage + WebCrypto):
- *  - senha nunca é guardada, só o hash SHA-256 com sal aleatório
- *  - sessão expira em 30 dias
- *  - quando o Supabase for ligado, esta camada vira a ponte para ele
- *    (as funções abaixo têm a mesma assinatura de um cliente de auth)
+ *  · cadastro/login → o banco (Postgres) confere a senha com bcrypt e
+ *    devolve um token de sessão (30 dias);
+ *  · o plano é uma SOMA DE HORAS com data de início e fim gravada no banco
+ *    (`vortex_planos`). O cliente só LÊ;
+ *  · horas só entram por: cadastro (horas de teste configuradas no admin),
+ *    pagamento confirmado pela equipe, ou o admin dando horas na mão;
+ *  · `localStorage` guarda apenas o token — apagar o token desloga, não
+ *    muda nada do plano.
+ *
+ * Toda a comunicação passa por `lib/nuvem.ts` (RPC com RLS fechado).
  */
 
-const CHAVE_CONTAS = 'vortex.contas.v1';
-const CHAVE_SESSAO = 'vortex.sessao.v1';
-const DIAS_SESSAO = 30;
+import { rpc } from './nuvem';
 
-export type Plano = 'free' | 'pro' | 'studio';
+export type Plano = 'nenhum' | 'teste' | 'pro' | 'studio';
+export type Papel = 'cliente' | 'admin';
 
-export interface Conta {
+export interface PlanoAtual {
+  tipo: Plano;
+  horas: number;
+  inicio?: string;
+  fim?: string;
+  horas_restantes: number;
+  segundos_restantes: number;
+}
+
+export interface Usuario {
   id: string;
   nome: string;
   email: string;
-  senhaHash: string;
-  sal: string;
-  plano: Plano;
-  criadoEm: number;
-  planoDesde?: number;
+  papel: Papel;
+  criado_em?: string;
+  ultimo_acesso?: string | null;
 }
 
 export interface Sessao {
+  token: string;
+  /** compatibilidade: id da conta = id do usuário no banco */
   contaId: string;
   nome: string;
   email: string;
+  /** tipo do plano vigente (nenhum | teste | pro | studio) */
   plano: Plano;
+  papel: Papel;
+  horasRestantes: number;
+  segundosRestantes: number;
+  fimPlano?: string;
   expiraEm: number;
+  usuario: Usuario;
 }
 
-/* ---------------- criptografia ---------------- */
+export interface ContaAdmin {
+  id: string;
+  nome: string;
+  email: string;
+  papel: Papel;
+  criado_em: string;
+  ultimo_acesso: string | null;
+  plano: PlanoAtual;
+  pagamentos_pendentes: number;
+  gasto_centavos: number;
+  downloads: number;
+}
 
-const aleatorio = (n = 16): string => {
-  const b = new Uint8Array(n);
-  crypto.getRandomValues(b);
-  return Array.from(b, (x) => x.toString(16).padStart(2, '0')).join('');
-};
+export interface Pagamento {
+  id: string;
+  usuario?: string;
+  email?: string;
+  plano: string;
+  horas: number;
+  valor_centavos: number;
+  status: 'pendente' | 'pago' | 'recusado' | 'expirado' | 'reembolsado';
+  referencia: string | null;
+  comprovante?: string | null;
+  criado_em: string;
+  confirmado_em?: string | null;
+}
 
-const hash = async (senha: string, sal: string): Promise<string> => {
-  const dados = new TextEncoder().encode(`${sal}::${senha}::vortex`);
-  const buf = await crypto.subtle.digest('SHA-256', dados);
-  return Array.from(new Uint8Array(buf), (x) => x.toString(16).padStart(2, '0')).join('');
-};
+export interface DownloadRegistro {
+  id: string;
+  ferramenta: string;
+  origem: string | null;
+  link: string | null;
+  nome: string | null;
+  bytes: number;
+  status: string;
+  criado_em: string;
+}
 
-/* ---------------- armazenamento ---------------- */
+/* ---------------- chaves locais (só token) ---------------- */
 
-const lerContas = (): Conta[] => {
+const CHAVE_TOKEN = 'vortex.token.v1';
+const CHAVE_SESSAO = 'vortex.sessao.v1';
+
+let cache: Sessao | null = null;
+
+const gravarSessao = (s: Sessao | null): void => {
+  cache = s;
   try {
-    const v = JSON.parse(localStorage.getItem(CHAVE_CONTAS) ?? '[]');
-    return Array.isArray(v) ? (v as Conta[]) : [];
+    if (!s) {
+      localStorage.removeItem(CHAVE_TOKEN);
+      localStorage.removeItem(CHAVE_SESSAO);
+      return;
+    }
+    localStorage.setItem(CHAVE_TOKEN, s.token);
+    // cache para abrir rápido; o servidor sempre tem a palavra final
+    localStorage.setItem(
+      CHAVE_SESSAO,
+      JSON.stringify({ ...s, salvoEm: Date.now() }),
+    );
   } catch {
-    return [];
+    /* modo privado do navegador: segue só em memória */
   }
 };
 
-const gravarContas = (c: Conta[]): void => localStorage.setItem(CHAVE_CONTAS, JSON.stringify(c));
-
-const abrirSessao = (c: Conta): Sessao => {
-  const s: Sessao = {
-    contaId: c.id,
-    nome: c.nome,
-    email: c.email,
-    plano: c.plano,
-    expiraEm: Date.now() + DIAS_SESSAO * 864e5,
-  };
-  localStorage.setItem(CHAVE_SESSAO, JSON.stringify(s));
-  return s;
-};
-
-/* ---------------- API ---------------- */
-
-export const sessaoAtual = (): Sessao | null => {
+export const tokenSalvo = (): string | null => {
   try {
-    const s = JSON.parse(localStorage.getItem(CHAVE_SESSAO) ?? 'null') as Sessao | null;
-    if (!s || !s.contaId) return null;
-    if (s.expiraEm < Date.now()) {
-      localStorage.removeItem(CHAVE_SESSAO);
-      return null;
-    }
-    // mantém o plano sincronizado com a conta
-    const conta = lerContas().find((c) => c.id === s.contaId);
-    return conta ? { ...s, plano: conta.plano, nome: conta.nome } : null;
+    return localStorage.getItem(CHAVE_TOKEN);
   } catch {
     return null;
   }
 };
 
-export const criarConta = async (
+const sesaoDeResposta = (d: {
+  usuario: Usuario;
+  plano: PlanoAtual;
+}, token: string): Sessao => ({
+  token,
+  contaId: d.usuario.id,
+  nome: d.usuario.nome,
+  email: d.usuario.email,
+  papel: d.usuario.papel,
+  plano: (d.plano?.tipo ?? 'nenhum') as Plano,
+  horasRestantes: Number(d.plano?.horas_restantes ?? 0),
+  segundosRestantes: Number(d.plano?.segundos_restantes ?? 0),
+  fimPlano: d.plano?.fim,
+  expiraEm: Date.now() + 30 * 864e5,
+  usuario: d.usuario,
+});
+
+/* ---------------- sessão ---------------- */
+
+/** sessão guardada no aparelho (abre sem esperar o servidor) */
+export const sessaoAtual = (): Sessao | null => {
+  if (cache) return cache;
+  const token = tokenSalvo();
+  if (!token) return null;
+  try {
+    const cru = localStorage.getItem(CHAVE_SESSAO);
+    if (!cru) return null;
+    const s = JSON.parse(cru) as Sessao & { salvoEm?: number };
+    if (!s?.token || s.token !== token) return null;
+    cache = s;
+    return s;
+  } catch {
+    return null;
+  }
+};
+
+/**
+ * Confere a sessão no servidor e atualiza horas/plano.
+ * É chamado ao abrir o editor e a cada 60 s: se o plano venceu, o
+ * navegador descobre na hora (não dá para "congelar" o plano no aparelho).
+ */
+export async function atualizarSessao(): Promise<Sessao | null> {
+  const token = tokenSalvo();
+  if (!token) {
+    gravarSessao(null);
+    return null;
+  }
+  try {
+    const d = await rpc<{ ok: boolean; usuario: Usuario; plano: PlanoAtual }>('vortex_sessao', {
+      p_token: token,
+    });
+    if (!d?.ok || !d.usuario) {
+      gravarSessao(null);
+      return null;
+    }
+    const s = sesaoDeResposta(d, token);
+    gravarSessao(s);
+    return s;
+  } catch {
+    // servidor fora do ar: mantém a última sessão conhecida (não expulsa o cliente)
+    return sessaoAtual();
+  }
+}
+
+/* ---------------- cadastro e login ---------------- */
+
+export async function criarConta(
   nome: string,
   email: string,
   senha: string,
-): Promise<{ ok: boolean; erro?: string; sessao?: Sessao }> => {
+): Promise<{ ok: boolean; erro?: string; sessao?: Sessao }> {
   const nomeLimpo = nome.trim();
   const emailLimpo = email.trim().toLowerCase();
-
   if (nomeLimpo.length < 2) return { ok: false, erro: 'Digite seu nome' };
   if (!/^[^@\s]+@[^@\s]+\.[a-z]{2,}$/i.test(emailLimpo)) return { ok: false, erro: 'E-mail inválido' };
   if (senha.length < 6) return { ok: false, erro: 'A senha precisa de pelo menos 6 caracteres' };
 
-  const contas = lerContas();
-  if (contas.some((c) => c.email === emailLimpo)) {
-    return { ok: false, erro: 'Já existe uma conta com esse e-mail. Faça login.' };
+  try {
+    const r = await rpc<{ ok: boolean; erro?: string; token?: string }>('vortex_criar_conta', {
+      p_nome: nomeLimpo,
+      p_email: emailLimpo,
+      p_senha: senha,
+    });
+    if (!r?.ok || !r.token) return { ok: false, erro: r?.erro ?? 'Não foi possível criar a conta' };
+    gravarSessao(null);
+    localStorage.setItem(CHAVE_TOKEN, r.token);
+    const s = await atualizarSessao();
+    return s ? { ok: true, sessao: s } : { ok: false, erro: 'Conta criada, mas não consegui abrir a sessão' };
+  } catch (e) {
+    return { ok: false, erro: (e as Error).message };
   }
+}
 
-  const sal = aleatorio();
-  const conta: Conta = {
-    id: aleatorio(8),
-    nome: nomeLimpo,
-    email: emailLimpo,
-    senhaHash: await hash(senha, sal),
-    sal,
-    plano: 'free',
-    criadoEm: Date.now(),
-  };
-  gravarContas([...contas, conta]);
-  return { ok: true, sessao: abrirSessao(conta) };
-};
-
-export const entrar = async (
+export async function entrar(
   email: string,
   senha: string,
-): Promise<{ ok: boolean; erro?: string; sessao?: Sessao }> => {
+): Promise<{ ok: boolean; erro?: string; sessao?: Sessao }> {
   const emailLimpo = email.trim().toLowerCase();
-  const conta = lerContas().find((c) => c.email === emailLimpo);
-  if (!conta) return { ok: false, erro: 'Não encontrei uma conta com esse e-mail' };
-
-  const h = await hash(senha, conta.sal);
-  if (h !== conta.senhaHash) return { ok: false, erro: 'Senha incorreta' };
-
-  return { ok: true, sessao: abrirSessao(conta) };
-};
-
-export const sair = (): void => localStorage.removeItem(CHAVE_SESSAO);
-
-export const sairConta = (): void => localStorage.removeItem(CHAVE_SESSAO);
-
-/** troca a senha do próprio cliente */
-export const trocarSenhaCliente = async (
-  contaId: string,
-  novaSenha: string,
-): Promise<{ ok: boolean; erro?: string }> => {
-  const contas = lerContas();
-  const i = contas.findIndex((c) => c.id === contaId);
-  if (i < 0) return { ok: false, erro: 'Conta não encontrada' };
-  if (novaSenha.length < 6) return { ok: false, erro: 'A senha precisa de 6 caracteres' };
-  const sal = aleatorio(16);
-  contas[i] = { ...contas[i], sal, senhaHash: await hash(novaSenha, sal) };
-  gravarContas(contas);
-  return { ok: true };
-};
-
-export const mudarPlano = (contaId: string, plano: Plano): void => {
-  const contas = lerContas().map((c) =>
-    c.id === contaId ? { ...c, plano, planoDesde: plano === 'pro' ? Date.now() : undefined } : c,
-  );
-  gravarContas(contas);
-  const s = sessaoAtual();
-  if (s && s.contaId === contaId) {
-    localStorage.setItem(CHAVE_SESSAO, JSON.stringify({ ...s, plano }));
+  try {
+    const r = await rpc<{ ok: boolean; erro?: string; token?: string }>('vortex_entrar', {
+      p_email: emailLimpo,
+      p_senha: senha,
+    });
+    if (!r?.ok || !r.token) return { ok: false, erro: r?.erro ?? 'Não foi possível entrar' };
+    try {
+      localStorage.setItem(CHAVE_TOKEN, r.token);
+    } catch {
+      /* ignora */
+    }
+    const s = await atualizarSessao();
+    return s ? { ok: true, sessao: s } : { ok: false, erro: 'Entrou, mas não consegui ler o perfil' };
+  } catch (e) {
+    return { ok: false, erro: (e as Error).message };
   }
+}
+
+export const sair = (): void => {
+  const t = tokenSalvo();
+  if (t) void rpc('vortex_sair', { p_token: t }).catch(() => undefined);
+  gravarSessao(null);
 };
+export const sairConta = sair;
 
-export const apagarConta = (contaId: string): void => {
-  gravarContas(lerContas().filter((c) => c.id !== contaId));
-  sair();
-};
+export async function trocarSenhaCliente(
+  _contaId: string,
+  novaSenha: string,
+  atual = '',
+): Promise<{ ok: boolean; erro?: string }> {
+  const token = tokenSalvo();
+  if (!token) return { ok: false, erro: 'Sessão expirada — entre de novo' };
+  if (novaSenha.length < 6) return { ok: false, erro: 'A senha precisa de 6 caracteres' };
+  if (!atual) return { ok: false, erro: 'Digite a senha atual' };
+  try {
+    const r = await rpc<{ ok: boolean; erro?: string }>('vortex_trocar_senha', {
+      p_token: token,
+      p_atual: atual,
+      p_nova: novaSenha,
+    });
+    return r?.ok ? { ok: true } : { ok: false, erro: r?.erro ?? 'Não foi possível trocar a senha' };
+  } catch (e) {
+    return { ok: false, erro: (e as Error).message };
+  }
+}
 
-export const totalContas = (): number => lerContas().length;
+/* ---------------- plano (só leitura no cliente) ---------------- */
 
-/** lista completa para o painel administrativo */
-export const listarContas = (): Conta[] => lerContas();
+export const temHoras = (s: Sessao | null | undefined): boolean =>
+  !!s && (s.papel === 'admin' || (s.horasRestantes ?? 0) > 0);
 
-/** admin troca o plano de um cliente */
-export const setPlanoConta = (id: string, plano: Plano): void => mudarPlano(id, plano);
+/** "2h 14min" a partir de segundos */
+export function tempoHumano(segundos: number): string {
+  const s = Math.max(0, Math.floor(segundos));
+  if (s <= 0) return '0 min';
+  const d = Math.floor(s / 86400);
+  const h = Math.floor((s % 86400) / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  if (d > 0) return `${d}d ${h}h`;
+  if (h > 0) return `${h}h ${String(m).padStart(2, '0')}min`;
+  if (m > 0) return `${m}min`;
+  return `${s}s`;
+}
 
-/** admin remove um cliente */
-export const excluirConta = (id: string): void => {
-  gravarContas(lerContas().filter((c) => c.id !== id));
-};
+/* ---------------- pagamento (nunca libera sozinho) ---------------- */
+
+export interface PedidoPagamento {
+  id: string;
+  plano: string;
+  horas: number;
+  valor_centavos: number;
+  referencia: string;
+  chave_pix: string;
+  instrucoes: string;
+  status: string;
+}
+
+export async function pedirPagamento(plano: string): Promise<{ ok: boolean; erro?: string; pedido?: PedidoPagamento }> {
+  const token = tokenSalvo();
+  if (!token) return { ok: false, erro: 'Entre na sua conta para assinar' };
+  try {
+    const r = await rpc<{ ok: boolean; erro?: string; pagamento: PedidoPagamento }>('vortex_pedir_pagamento', {
+      p_token: token,
+      p_plano: plano,
+    });
+    if (!r?.ok) return { ok: false, erro: r?.erro ?? 'Não foi possível abrir o pedido' };
+    return { ok: true, pedido: r.pagamento };
+  } catch (e) {
+    return { ok: false, erro: (e as Error).message };
+  }
+}
+
+export async function meusPagamentos(): Promise<Pagamento[]> {
+  const token = tokenSalvo();
+  if (!token) return [];
+  try {
+    return (await rpc<Pagamento[]>('vortex_meus_pagamentos', { p_token: token })) ?? [];
+  } catch {
+    return [];
+  }
+}
+
+export async function enviarComprovante(pagamentoId: string, texto: string): Promise<{ ok: boolean; erro?: string }> {
+  const token = tokenSalvo();
+  if (!token) return { ok: false, erro: 'Entre na sua conta' };
+  try {
+    await rpc('vortex_enviar_comprovante', { p_token: token, p_pagamento: pagamentoId, p_texto: texto });
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, erro: (e as Error).message };
+  }
+}
+
+/* ---------------- downloads do sistema ---------------- */
+
+export async function registrarDownload(reg: {
+  ferramenta: string;
+  origem?: string;
+  link?: string;
+  nome?: string;
+  bytes?: number;
+  status?: string;
+  detalhe?: string;
+}): Promise<{ ok: boolean; erro?: string; horas_restantes?: number }> {
+  const token = tokenSalvo();
+  if (!token) return { ok: false, erro: 'Entre na sua conta' };
+  try {
+    const r = await rpc<{ ok: boolean; erro?: string; horas_restantes?: number }>('vortex_registrar_download', {
+      p_token: token,
+      p_ferramenta: reg.ferramenta,
+      p_origem: reg.origem ?? null,
+      p_link: reg.link ?? null,
+      p_nome: reg.nome ?? null,
+      p_bytes: reg.bytes ?? 0,
+      p_status: reg.status ?? 'ok',
+      p_detalhe: reg.detalhe ?? null,
+    });
+    return r ?? { ok: false };
+  } catch (e) {
+    return { ok: false, erro: (e as Error).message };
+  }
+}
+
+export async function meusDownloads(): Promise<DownloadRegistro[]> {
+  const token = tokenSalvo();
+  if (!token) return [];
+  try {
+    return (await rpc<DownloadRegistro[]>('vortex_meus_downloads', { p_token: token })) ?? [];
+  } catch {
+    return [];
+  }
+}
+
+/* ---------------- administração ---------------- */
+
+export async function listarContas(): Promise<ContaAdmin[]> {
+  const token = tokenSalvo();
+  if (!token) return [];
+  try {
+    const r = await rpc<{ ok: boolean; usuarios: ContaAdmin[] }>('vortex_admin_listar', { p_token: token });
+    return r?.usuarios ?? [];
+  } catch {
+    return [];
+  }
+}
+
+export async function darHoras(
+  usuarioId: string,
+  horas: number,
+  tipo: 'teste' | 'pro' | 'studio' = 'teste',
+  motivo = '',
+): Promise<{ ok: boolean; erro?: string }> {
+  const token = tokenSalvo();
+  if (!token) return { ok: false, erro: 'Sessão expirada' };
+  try {
+    const r = await rpc<{ ok: boolean; erro?: string }>('vortex_admin_set_horas', {
+      p_token: token,
+      p_usuario: usuarioId,
+      p_horas: horas,
+      p_tipo: tipo,
+      p_motivo: motivo,
+    });
+    return r?.ok ? { ok: true } : { ok: false, erro: r?.erro ?? 'Não foi possível dar horas' };
+  } catch (e) {
+    return { ok: false, erro: (e as Error).message };
+  }
+}
+
+export async function revogarPlano(usuarioId: string): Promise<{ ok: boolean; erro?: string }> {
+  const token = tokenSalvo();
+  if (!token) return { ok: false, erro: 'Sessão expirada' };
+  try {
+    const r = await rpc<{ ok: boolean; erro?: string }>('vortex_admin_revogar', { p_token: token, p_usuario: usuarioId });
+    return r?.ok ? { ok: true } : { ok: false, erro: r?.erro };
+  } catch (e) {
+    return { ok: false, erro: (e as Error).message };
+  }
+}
+
+export async function excluirConta(usuarioId: string): Promise<{ ok: boolean; erro?: string }> {
+  const token = tokenSalvo();
+  if (!token) return { ok: false, erro: 'Sessão expirada' };
+  try {
+    const r = await rpc<{ ok: boolean; erro?: string }>('vortex_admin_excluir', { p_token: token, p_usuario: usuarioId });
+    return r?.ok ? { ok: true } : { ok: false, erro: r?.erro };
+  } catch (e) {
+    return { ok: false, erro: (e as Error).message };
+  }
+}
+
+/** admin dá o plano na mão (atalho usado no painel) */
+export const setPlanoConta = (id: string, plano: Plano): Promise<{ ok: boolean; erro?: string }> =>
+  plano === 'nenhum' ? revogarPlano(id) : darHoras(id, plano === 'studio' ? 168 : plano === 'pro' ? 24 : 1, plano as 'teste' | 'pro' | 'studio', 'admin');
+
+export async function listarPagamentos(): Promise<Pagamento[]> {
+  const token = tokenSalvo();
+  if (!token) return [];
+  try {
+    const r = await rpc<{ ok: boolean; pagamentos: Pagamento[] }>('vortex_admin_pagamentos', { p_token: token });
+    return r?.pagamentos ?? [];
+  } catch {
+    return [];
+  }
+}
+
+export async function confirmarPagamento(id: string): Promise<{ ok: boolean; erro?: string }> {
+  const token = tokenSalvo();
+  if (!token) return { ok: false, erro: 'Sessão expirada' };
+  try {
+    const r = await rpc<{ ok: boolean; erro?: string }>('vortex_admin_confirmar_pagamento', { p_token: token, p_pagamento: id });
+    return r?.ok ? { ok: true } : { ok: false, erro: r?.erro };
+  } catch (e) {
+    return { ok: false, erro: (e as Error).message };
+  }
+}
+
+export async function recusarPagamento(id: string): Promise<{ ok: boolean; erro?: string }> {
+  const token = tokenSalvo();
+  if (!token) return { ok: false, erro: 'Sessão expirada' };
+  try {
+    await rpc('vortex_admin_recusar_pagamento', { p_token: token, p_pagamento: id });
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, erro: (e as Error).message };
+  }
+}
+
+export interface ConfigNuvem {
+  planos_horas: { teste?: number; pro?: number; studio?: number };
+  precos_centavos: { pro?: number; studio?: number };
+  horas_teste_novo_usuario: number;
+  plano_gratis_ativo: boolean;
+  chave_pix: string;
+  instrucoes_pagamento: string;
+}
+
+export async function lerConfigNuvem(): Promise<ConfigNuvem | null> {
+  try {
+    const r = await rpc<ConfigNuvem>('vortex_publico');
+    return r ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export async function configAdmin(): Promise<Record<string, unknown> | null> {
+  const token = tokenSalvo();
+  if (!token) return null;
+  try {
+    const r = await rpc<{ ok: boolean; config: Record<string, unknown> }>('vortex_admin_config', { p_token: token });
+    return r?.config ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export async function salvarConfigAdmin(chave: string, valor: unknown): Promise<{ ok: boolean; erro?: string }> {
+  const token = tokenSalvo();
+  if (!token) return { ok: false, erro: 'Sessão expirada' };
+  try {
+    const r = await rpc<{ ok: boolean; erro?: string }>('vortex_admin_set_config', {
+      p_token: token,
+      p_chave: chave,
+      p_valor: valor,
+    });
+    return r?.ok ? { ok: true } : { ok: false, erro: r?.erro };
+  } catch (e) {
+    return { ok: false, erro: (e as Error).message };
+  }
+}
+
+export const totalContas = (l: ContaAdmin[]): number => l.length;

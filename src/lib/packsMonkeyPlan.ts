@@ -32,7 +32,8 @@ export interface UsoPacks {
   total: number;
 }
 
-export const COTAS: Record<Plano, number> = { free: 5, pro: 60, studio: 300 };
+/** cota diária de arquivos do acervo por tipo de plano (sem horas = 0) */
+export const COTAS: Record<Plano, number> = { nenhum: 0, teste: 10, pro: 60, studio: 300 };
 
 const hoje = () => new Date().toISOString().slice(0, 10);
 
@@ -65,7 +66,7 @@ export const lerUso = (): UsoPacks => {
 
 export const podeBaixar = (plano: Plano): { ok: boolean; restam: number; cota: number } => {
   const u = lerUso();
-  const cota = COTAS[plano] ?? COTAS.free;
+  const cota = COTAS[plano] ?? COTAS.nenhum;
   return { ok: u.baixados < cota, restam: Math.max(0, cota - u.baixados), cota };
 };
 

@@ -1,10 +1,10 @@
 {
-  "base": "https://vortex-editor-gwyd.vercel.app",
+  "base": "http://localhost:3001",
   "checks": [
     {
       "nome": "celular: landing rola com o dedo",
       "ok": true,
-      "extra": "scrollY 699 → 1338 · página 5290px"
+      "extra": "scrollY 612 → 1301 · página 5128px"
     },
     {
       "nome": "celular: botões com área de toque decente",
@@ -17,37 +17,47 @@
       "extra": ""
     },
     {
-      "nome": "plano FREE: exportar pede assinatura (portão)",
+      "nome": "sem horas: exportar pede plano (portão)",
       "ok": true,
       "extra": "aviso exibido"
     },
     {
-      "nome": "portão leva ao checkout",
+      "nome": "portão leva ao pedido de pagamento",
       "ok": true,
       "extra": ""
     },
     {
-      "nome": "checkout mostra planos e preço",
+      "nome": "checkout mostra planos, horas e preço",
       "ok": true,
-      "extra": "R$ 29,90/por mês"
+      "extra": "R$ 29,90"
     },
     {
-      "nome": "checkout pede dados do cliente",
+      "nome": "checkout pede os dados do cliente",
       "ok": true,
-      "extra": "3 campos"
+      "extra": "2 campos"
     },
     {
-      "nome": "checkout oferece Pix",
+      "nome": "pedido gerado com referência e aviso de \"aguardando pagamento\"",
+      "ok": true,
+      "extra": "VX938C6193A1"
+    },
+    {
+      "nome": "o sistema avisa que as horas NÃO são liberadas automaticamente",
       "ok": true,
       "extra": ""
     },
     {
-      "nome": "checkout oferece cartão",
+      "nome": "depois do pedido (sem pagar) exportar continua bloqueado",
       "ok": true,
       "extra": ""
     },
     {
       "nome": "painel do cliente abre",
+      "ok": true,
+      "extra": ""
+    },
+    {
+      "nome": "painel mostra a barra de horas do plano",
       "ok": true,
       "extra": ""
     },
@@ -67,6 +77,11 @@
       "extra": "936 caracteres"
     },
     {
+      "nome": "admin do banco dá 24h de plano ao cliente",
+      "ok": true,
+      "extra": "24h"
+    },
+    {
       "nome": "plano Pro: exportar abre direto",
       "ok": true,
       "extra": ""
@@ -74,7 +89,7 @@
     {
       "nome": "exporta VÍDEO (download real)",
       "ok": true,
-      "extra": "download · 8.9 MB"
+      "extra": "download · 9.0 MB"
     },
     {
       "nome": "exporta IMAGEM (Frame PNG)",
@@ -92,9 +107,14 @@
       "extra": "163 packs"
     },
     {
-      "nome": "Baixa Tudo abre com plano Pro",
+      "nome": "Baixar conteúdo (ferramenta única) abre",
       "ok": true,
       "extra": ""
+    },
+    {
+      "nome": "link do YouTube é reconhecido e listado",
+      "ok": true,
+      "extra": "1 item(s)"
     },
     {
       "nome": "Extrair de site abre",
@@ -109,7 +129,7 @@
     {
       "nome": "admin entra com a conta do dono",
       "ok": true,
-      "extra": "15 abas"
+      "extra": "17 abas"
     },
     {
       "nome": "admin: aba Visão geral",
@@ -129,7 +149,7 @@
     {
       "nome": "admin: aba Pagamento",
       "ok": true,
-      "extra": "Pagamento"
+      "extra": "Pagamentos"
     },
     {
       "nome": "admin: aba Inteligência artificial",

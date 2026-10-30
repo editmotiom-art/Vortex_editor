@@ -1,11 +1,25 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useUI } from '../store/ui';
-import { lerConfig, type Plano } from '../lib/config';
-import { mudarPlano } from '../lib/contas';
+import {
+  enviarComprovante,
+  meusPagamentos,
+  pedirPagamento,
+  lerConfigNuvem,
+  type ConfigNuvem,
+  type Pagamento,
+  type PedidoPagamento,
+} from '../lib/contas';
 
 /* ============================================================
-   CHECKOUT — assinatura completa
-   Etapas: plano → dados → pagamento → pronto
+   CHECKOUT — PEDIDO DE PLANO POR HORAS
+   ------------------------------------------------------------
+   REGRA DE SEGURANÇA (a que faltava): este modal NÃO ativa plano.
+   Ele apenas registra um pedido no banco (`vortex_pagamentos`, status
+   "pendente"). Quem dá horas é:
+     · o admin, em #admin → Pagamentos → Confirmar; ou
+     · o webhook do provedor, quando houver um.
+   Sem confirmação, o token do cliente continua sem horas e o editor
+   segue bloqueado. Não existe caminho no navegador para se dar plano.
    ============================================================ */
 
 type Etapa = 'plano' | 'dados' | 'pagamento' | 'pronto';
@@ -32,76 +46,93 @@ const rotulo: React.CSSProperties = {
   marginBottom: 5,
 };
 
-const brl = (n: number) => `R$ ${n.toFixed(2).replace('.', ',')}`;
+const brl = (centavos: number) => `R$ ${(centavos / 100).toFixed(2).replace('.', ',')}`;
+
+const horasTexto = (h: number) => (h >= 24 ? `${Math.round(h / 24)} dia${h >= 48 ? 's' : ''} (${h}h)` : `${h}h`);
 
 export function Checkout() {
-  const { closeModal, sessao, setSessao, toast } = useUI();
-  const config = useMemo(() => lerConfig(), []);
-  const planos = config.planos.filter((p) => p.ativo && p.id !== 'free');
-
+  const { closeModal, sessao, toast } = useUI();
+  const [cfg, setCfg] = useState<ConfigNuvem | null>(null);
   const [etapa, setEtapa] = useState<Etapa>('plano');
-  const [escolhido, setEscolhido] = useState<Plano>(planos.find((p) => p.destaque) ?? planos[0]);
-  const [metodo, setMetodo] = useState<'pix' | 'cartao'>(config.pagamento.pixAtivo ? 'pix' : 'cartao');
+  const [escolhido, setEscolhido] = useState<'pro' | 'studio'>('pro');
   const [nome, setNome] = useState(sessao?.nome ?? '');
   const [email, setEmail] = useState(sessao?.email ?? '');
-  const [cpf, setCpf] = useState('');
-  const [cartao, setCartao] = useState({ numero: '', nome: '', validade: '', cvv: '' });
+  const [pedido, setPedido] = useState<PedidoPagamento | null>(null);
+  const [comprovante, setComprovante] = useState('');
+  const [enviado, setEnviado] = useState(false);
+  const [historico, setHistorico] = useState<Pagamento[]>([]);
   const [processando, setProcessando] = useState(false);
   const [erro, setErro] = useState('');
-  const [codigoPix] = useState(() => {
-    const b = new Uint8Array(14);
-    crypto.getRandomValues(b);
-    return Array.from(b, (x) => x.toString(16).padStart(2, '0')).join('').toUpperCase();
-  });
 
-  /* ---------------- finalização ---------------- */
+  useEffect(() => {
+    lerConfigNuvem().then(setCfg);
+    meusPagamentos().then(setHistorico);
+  }, []);
 
-  /** limpa o erro assim que o cliente corrige algo */
-  const editar = () => {
-    if (erro) setErro('');
-  };
+  const planos = useMemo(() => {
+    const horas = cfg?.planos_horas ?? { pro: 24, studio: 168 };
+    const precos = cfg?.precos_centavos ?? { pro: 2990, studio: 8990 };
+    return [
+      {
+        id: 'pro' as const,
+        nome: 'Pro',
+        horas: Number(horas.pro ?? 24),
+        preco: Number(precos.pro ?? 2990),
+        itens: [
+          'Editor completo liberado',
+          'Acervo inteiro: templates, fundos, músicas e SFX',
+          'Baixa Tudo + extensão do Drive',
+          'Legenda automática e IA',
+          'Exportação até 1080p sem marca',
+        ],
+        destaque: true,
+      },
+      {
+        id: 'studio' as const,
+        nome: 'Studio',
+        horas: Number(horas.studio ?? 168),
+        preco: Number(precos.studio ?? 8990),
+        itens: [
+          'Tudo do Pro',
+          'Exportação 4K',
+          'Fila de IA e legendas com prioridade',
+          'Packs do Editor incluídos',
+          'Suporte direto no WhatsApp',
+        ],
+        destaque: false,
+      },
+    ];
+  }, [cfg]);
 
-  const finalizar = () => {
+  const plano = planos.find((p) => p.id === escolhido) ?? planos[0];
+
+  /* ---------------- criar pedido (nada é liberado) ---------------- */
+
+  const criarPedido = async () => {
     setErro('');
-    if (metodo === 'cartao') {
-      const num = cartao.numero.replace(/\s/g, '');
-      if (num.length < 13) return setErro('Número do cartão incompleto');
-      if (!/^\d{2}\/\d{2}$/.test(cartao.validade)) return setErro('Validade no formato MM/AA');
-      if (cartao.cvv.length < 3) return setErro('CVV inválido');
-      if (cartao.nome.trim().length < 3) return setErro('Nome impresso no cartão');
-    }
     if (nome.trim().length < 2) return setErro('Digite seu nome');
     if (!/^[^@\s]+@[^@\s]+\.[a-z]{2,}$/i.test(email)) return setErro('E-mail inválido');
-
+    if (!sessao) return setErro('Entre na sua conta para registrar o pedido');
     setProcessando(true);
-
-    // provedor externo configurado com link pronto → manda para lá
-    if (config.pagamento.provedor !== 'nenhum' && config.pagamento.provedor !== 'manual' && config.pagamento.urlCheckout) {
-      const url = config.pagamento.urlCheckout;
-      window.open(url, '_blank', 'noopener');
-      setProcessando(false);
-      setEtapa('pronto');
-      toast('Abrimos o checkout do provedor em outra aba', 'ok');
-      return;
-    }
-
-    // fluxo interno (manual / demonstração)
-    setTimeout(() => {
-      if (sessao) {
-        mudarPlano(sessao.contaId, escolhido.id);
-        setSessao({ ...sessao, plano: escolhido.id });
-      }
-      setProcessando(false);
-      setEtapa('pronto');
-      toast(`Plano ${escolhido.nome} ativado`, 'ok');
-    }, 1400);
+    const r = await pedirPagamento(escolhido);
+    setProcessando(false);
+    if (!r.ok || !r.pedido) return setErro(r.erro ?? 'Não foi possível registrar o pedido');
+    setPedido(r.pedido);
+    setEtapa('pronto');
+    toast('Pedido registrado — o plano entra assim que o pagamento for confirmado', 'ok');
+    meusPagamentos().then(setHistorico);
   };
 
-  const concluir = () => {
-    closeModal();
+  const mandarComprovante = async () => {
+    if (!pedido) return;
+    if (comprovante.trim().length < 4) return setErro('Cole o código/identificador do comprovante');
+    setProcessando(true);
+    const r = await enviarComprovante(pedido.id, comprovante.trim());
+    setProcessando(false);
+    if (!r.ok) return setErro(r.erro ?? 'Não foi possível enviar');
+    setEnviado(true);
+    toast('Comprovante enviado — aguarde a confirmação da equipe', 'ok');
   };
-
-  /* ---------------- telas ---------------- */
 
   const passos = ['Plano', 'Dados', 'Pagamento'];
   const indice = etapa === 'plano' ? 0 : etapa === 'dados' ? 1 : 2;
@@ -110,13 +141,11 @@ export function Checkout() {
     <div className="overlay" onClick={closeModal}>
       <div
         className="modal"
-        style={{ width: 'min(720px,100%)', maxHeight: '92vh', overflow: 'auto' }}
+        style={{ width: 'min(700px,100%)', maxHeight: '92vh', overflow: 'auto' }}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="modal-head">
-          <div className="modal-title">
-            {etapa === 'pronto' ? 'Assinatura ativa' : 'Assinar ' + (config.nomeApp || 'Vortex')}
-          </div>
+          <div className="modal-title">Adicionar horas de plano</div>
           <div className="spacer" />
           <button className="btn ghost icon" onClick={closeModal}>
             ✕
@@ -124,7 +153,6 @@ export function Checkout() {
         </div>
 
         <div className="modal-body">
-          {/* ---------- trilha de etapas ---------- */}
           {etapa !== 'pronto' && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 20 }}>
               {passos.map((p, i) => (
@@ -154,13 +182,13 @@ export function Checkout() {
           {/* ================= 1. PLANO ================= */}
           {etapa === 'plano' && (
             <>
-              <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.max(planos.length, 1)},1fr)`, gap: 10 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 10 }}>
                 {planos.map((p) => {
-                  const ativo = escolhido.id === p.id;
+                  const ativo = escolhido === p.id;
                   return (
                     <button
                       key={p.id}
-                      onClick={() => setEscolhido(p)}
+                      onClick={() => setEscolhido(p.id)}
                       style={{
                         textAlign: 'left',
                         padding: 16,
@@ -174,12 +202,10 @@ export function Checkout() {
                         <b style={{ fontSize: 14 }}>{p.nome}</b>
                         {p.destaque && <span className="pill paid">POPULAR</span>}
                       </div>
-                      <div style={{ fontSize: 24, fontWeight: 900, letterSpacing: '-.8px' }}>
-                        {brl(p.preco)}
-                        <span style={{ fontSize: 11, fontWeight: 500, color: 'var(--txt-2)' }}>/{p.periodo}</span>
-                      </div>
-                      <div style={{ marginTop: 10 }}>
-                        {p.itens.slice(0, 4).map((it) => (
+                      <div style={{ fontSize: 24, fontWeight: 900, letterSpacing: '-.8px' }}>{brl(p.preco)}</div>
+                      <div style={{ fontSize: 11.5, color: 'var(--txt-2)', marginBottom: 8 }}>{horasTexto(p.horas)} de acesso</div>
+                      <div style={{ marginTop: 4 }}>
+                        {p.itens.map((it) => (
                           <div key={it} style={{ display: 'flex', gap: 6, fontSize: 11.5, color: 'var(--txt-1)', marginBottom: 4 }}>
                             <span style={{ color: 'var(--acc)' }}>✓</span>
                             {it}
@@ -191,12 +217,18 @@ export function Checkout() {
                 })}
               </div>
 
-              <button className="btn primary" style={{ width: '100%', marginTop: 18, padding: 12, fontWeight: 800 }} onClick={() => setEtapa('dados')}>
-                Continuar com {escolhido.nome} — {brl(escolhido.preco)}/mês
-              </button>
-              <p style={{ fontSize: 10.5, color: 'var(--txt-2)', textAlign: 'center', marginTop: 9 }}>
-                Cancele quando quiser · sem fidelidade
+              <p style={{ fontSize: 11, color: 'var(--txt-2)', margin: '12px 0 0', lineHeight: 1.6 }}>
+                O plano é por <b>horas de uso</b>, somadas ao que você já tem. Não existe renovação automática:
+                quando as horas acabam, o editor continua abrindo — exportar e baixar é que pedem novo pagamento.
               </p>
+
+              <button
+                className="btn primary"
+                style={{ width: '100%', marginTop: 16, padding: 12, fontWeight: 800 }}
+                onClick={() => setEtapa('dados')}
+              >
+                Continuar com {plano.nome} — {brl(plano.preco)} · {horasTexto(plano.horas)}
+              </button>
             </>
           )}
 
@@ -204,220 +236,160 @@ export function Checkout() {
           {etapa === 'dados' && (
             <>
               <label style={rotulo}>Nome completo</label>
-              <input style={{ ...campo, marginBottom: 12 }} value={nome} onChange={(e) => { editar(); setNome(e.target.value); }} />
+              <input style={{ ...campo, marginBottom: 12 }} value={nome} onChange={(e) => setNome(e.target.value)} />
 
-              <label style={rotulo}>E-mail</label>
-              <input style={{ ...campo, marginBottom: 12 }} type="email" value={email} onChange={(e) => { editar(); setEmail(e.target.value); }} />
+              <label style={rotulo}>E-mail da conta</label>
+              <input style={{ ...campo, marginBottom: 12 }} type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
 
-              <label style={rotulo}>CPF / CNPJ</label>
-              <input
-                style={{ ...campo, marginBottom: 12 }}
-                value={cpf}
-                onChange={(e) => {
-                  const v = e.target.value.replace(/\D/g, '').slice(0, 14);
-                  const fmt =
-                    v.length <= 11
-                      ? v.replace(/(\d{3})(\d)/, '$1.$2').replace(/(\d{3})(\d)/, '$1.$2').replace(/(\d{3})(\d{1,2})$/, '$1-$2')
-                      : v.replace(/^(\d{2})(\d)/, '$1.$2').replace(/^(\d{2})\.(\d{3})(\d)/, '$1.$2.$3').replace(/\.(\d{3})(\d)/, '.$1/$2').replace(/(\d{4})(\d)/, '$1-$2');
-                  setCpf(fmt);
-                }}
-                placeholder="000.000.000-00"
-              />
+              {sessao ? (
+                <p style={{ fontSize: 11.5, color: 'var(--txt-2)', margin: '0 0 4px' }}>
+                  Conta: <b>{sessao.email}</b> · plano atual {sessao.plano.toUpperCase()} ·{' '}
+                  {sessao.papel === 'admin' ? 'acesso administrativo' : `${sessao.horasRestantes.toFixed(1)}h restantes`}
+                </p>
+              ) : (
+                <p style={{ fontSize: 11.5, color: 'var(--err, #f87171)', margin: '0 0 4px' }}>
+                  Você precisa entrar na sua conta antes de pedir horas.
+                </p>
+              )}
 
-              <div style={{ display: 'flex', gap: 9, marginTop: 6 }}>
+              {erro && <p style={{ fontSize: 11.5, color: 'var(--err, #f87171)' }}>{erro}</p>}
+
+              <div style={{ display: 'flex', gap: 9, marginTop: 12 }}>
                 <button className="btn ghost" onClick={() => setEtapa('plano')} style={{ flex: 1 }}>
                   Voltar
                 </button>
-                <button className="btn primary" onClick={() => setEtapa('pagamento')} style={{ flex: 2, fontWeight: 800 }}>
-                  Ir para pagamento
+                <button className="btn primary" onClick={criarPedido} disabled={processando} style={{ flex: 2, fontWeight: 800 }}>
+                  {processando ? 'Registrando…' : 'Gerar pedido de pagamento'}
                 </button>
               </div>
             </>
           )}
 
           {/* ================= 3. PAGAMENTO ================= */}
-          {etapa === 'pagamento' && (
+          {etapa === 'pagamento' && pedido && (
             <>
-              <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-                {config.pagamento.pixAtivo && (
-                  <button className={`btn ${metodo === 'pix' ? 'primary' : 'ghost'}`} style={{ flex: 1 }} onClick={() => setMetodo('pix')}>
-                    PIX
-                  </button>
-                )}
-                {config.pagamento.cartaoAtivo && (
-                  <button className={`btn ${metodo === 'cartao' ? 'primary' : 'ghost'}`} style={{ flex: 1 }} onClick={() => setMetodo('cartao')}>
-                    Cartão de crédito
-                  </button>
-                )}
-              </div>
-
-              {metodo === 'pix' && (
-                <div style={{ textAlign: 'center', padding: '10px 0 4px' }}>
-                  {/* QR code decorativo gerado por padrão determinístico */}
-                  <div
-                    style={{
-                      width: 168,
-                      height: 168,
-                      margin: '0 auto 14px',
-                      borderRadius: 10,
-                      background: '#fff',
-                      padding: 9,
-                      display: 'grid',
-                      gridTemplateColumns: 'repeat(21,1fr)',
-                      gap: 0,
-                    }}
-                  >
-                    {Array.from({ length: 441 }).map((_, i) => {
-                      const x = i % 21;
-                      const y = Math.floor(i / 21);
-                      const marcador = (x < 7 && y < 7) || (x > 13 && y < 7) || (x < 7 && y > 13);
-                      const borda = marcador && (x < 7 && y < 7 ? x === 0 || y === 0 || x === 6 || y === 6 || (x > 1 && x < 5 && y > 1 && y < 5) : true);
-                      const aleatorio = (codigoPix.charCodeAt((i * 7) % codigoPix.length) + x * 3 + y * 5) % 3 === 0;
-                      const on = marcador ? borda : aleatorio;
-                      return <div key={i} style={{ background: on ? '#0b0f16' : 'transparent' }} />;
-                    })}
-                  </div>
-                  <div style={{ fontSize: 12.5, color: 'var(--txt-1)', marginBottom: 6 }}>
-                    Escaneie para pagar <b>{brl(escolhido.preco)}</b>
-                  </div>
-                  <div
-                    style={{
-                      fontFamily: 'var(--mono)',
-                      fontSize: 10,
-                      color: 'var(--txt-2)',
-                      background: 'var(--bg-2)',
-                      border: '1px solid var(--line)',
-                      borderRadius: 7,
-                      padding: 9,
-                      wordBreak: 'break-all',
-                      marginBottom: 10,
-                    }}
-                  >
-                    00020126BR.GOV.BCB.PIX{codigoPix.slice(0, 8)}5204000053039865802BR5920VORTEX EDITOR LTDA6009SAO PAULO62070503{codigoPix.slice(0, 6)}6304{codigoPix.slice(6, 10)}
-                  </div>
-                  <button
-                    className="btn ghost sm"
-                    onClick={() => {
-                      void navigator.clipboard.writeText(codigoPix);
-                      toast('Código PIX copiado', 'ok');
-                    }}
-                  >
-                    Copiar código PIX
-                  </button>
-                </div>
-              )}
-
-              {metodo === 'cartao' && (
-                <>
-                  <label style={rotulo}>Número do cartão</label>
-                  <input
-                    style={{ ...campo, marginBottom: 12 }}
-                    value={cartao.numero}
-                    onChange={(e) => {
-                      const v = e.target.value.replace(/\D/g, '').slice(0, 16);
-                      editar(); setCartao({ ...cartao, numero: v.replace(/(\d{4})(?=\d)/g, '$1 ') });
-                    }}
-                    placeholder="0000 0000 0000 0000"
-                    inputMode="numeric"
-                  />
-
-                  <label style={rotulo}>Nome impresso no cartão</label>
-                  <input style={{ ...campo, marginBottom: 12 }} value={cartao.nome} onChange={(e) => { editar(); setCartao({ ...cartao, nome: e.target.value.toUpperCase() }); }} />
-
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                    <div>
-                      <label style={rotulo}>Validade</label>
-                      <input
-                        style={campo}
-                        value={cartao.validade}
-                        onChange={(e) => {
-                          const v = e.target.value.replace(/\D/g, '').slice(0, 4);
-                          editar(); setCartao({ ...cartao, validade: v.length > 2 ? `${v.slice(0, 2)}/${v.slice(2)}` : v });
-                        }}
-                        placeholder="MM/AA"
-                        inputMode="numeric"
-                      />
-                    </div>
-                    <div>
-                      <label style={rotulo}>CVV</label>
-                      <input
-                        style={campo}
-                        value={cartao.cvv}
-                        onChange={(e) => { editar(); setCartao({ ...cartao, cvv: e.target.value.replace(/\D/g, '').slice(0, 4) }); }}
-                        placeholder="123"
-                        inputMode="numeric"
-                      />
-                    </div>
-                  </div>
-                </>
-              )}
-
-              <div style={{ marginTop: 16, padding: 12, borderRadius: 9, background: 'var(--bg-2)', border: '1px solid var(--line)' }}>
-                <div style={{ display: 'flex', fontSize: 12.5 }}>
-                  <span>Plano {escolhido.nome}</span>
-                  <div style={{ flex: 1 }} />
-                  <b>{brl(escolhido.preco)}</b>
-                </div>
-                <div style={{ display: 'flex', fontSize: 11, color: 'var(--txt-2)', marginTop: 4 }}>
-                  <span>Cobrança mensal · cancele quando quiser</span>
-                  <div style={{ flex: 1 }} />
-                  <span>total hoje</span>
+              <div style={{ background: 'var(--bg-2)', border: '1px solid var(--line)', borderRadius: 10, padding: 14 }}>
+                <div style={{ fontSize: 12, color: 'var(--txt-2)' }}>Pedido</div>
+                <div style={{ fontSize: 18, fontWeight: 900, letterSpacing: '.5px' }}>{pedido.referencia}</div>
+                <div style={{ fontSize: 12.5, color: 'var(--txt-1)', marginTop: 4 }}>
+                  {pedido.plano.toUpperCase()} · {horasTexto(pedido.horas)} · <b>{brl(pedido.valor_centavos)}</b>
                 </div>
               </div>
-
-              {erro && (
-                <div style={{ marginTop: 12, fontSize: 12, color: '#fca5a5', background: 'rgba(244,63,94,.1)', border: '1px solid rgba(244,63,94,.3)', padding: '8px 11px', borderRadius: 8 }}>
-                  {erro}
-                </div>
-              )}
-
-              <div style={{ display: 'flex', gap: 9, marginTop: 14 }}>
-                <button className="btn ghost" onClick={() => setEtapa('dados')} style={{ flex: 1 }}>
-                  Voltar
-                </button>
-                <button className="btn primary" onClick={finalizar} disabled={processando} style={{ flex: 2, fontWeight: 800 }}>
-                  {processando ? 'Processando…' : `Pagar ${brl(escolhido.preco)}`}
-                </button>
-              </div>
-
-              <p style={{ fontSize: 10, color: 'var(--txt-2)', textAlign: 'center', marginTop: 10, lineHeight: 1.5 }}>
-                {config.pagamento.provedor === 'nenhum' || config.pagamento.provedor === 'manual'
-                  ? 'Modo demonstração: nenhum valor é cobrado. Configure um provedor no painel administrativo para cobrar de verdade.'
-                  : `Pagamento processado por ${config.pagamento.provedor}.`}
-              </p>
+              <button className="btn ghost" style={{ width: '100%', marginTop: 10 }} onClick={() => setEtapa('dados')}>
+                Voltar
+              </button>
             </>
           )}
 
           {/* ================= 4. PRONTO ================= */}
-          {etapa === 'pronto' && (
-            <div style={{ textAlign: 'center', padding: '18px 0' }}>
-              <div
-                style={{
-                  width: 62,
-                  height: 62,
-                  borderRadius: '50%',
-                  background: 'rgba(52,211,153,.14)',
-                  border: '1px solid var(--ok)',
-                  color: 'var(--ok)',
-                  display: 'grid',
-                  placeItems: 'center',
-                  fontSize: 28,
-                  margin: '0 auto 16px',
-                }}
-              >
-                ✓
+          {etapa === 'pronto' && pedido && (
+            <div>
+              <div style={{ textAlign: 'center', padding: '6px 0 14px' }}>
+                <div
+                  style={{
+                    width: 56,
+                    height: 56,
+                    borderRadius: '50%',
+                    background: 'rgba(245,158,11,.14)',
+                    border: '1px solid #f59e0b',
+                    color: '#f59e0b',
+                    display: 'grid',
+                    placeItems: 'center',
+                    fontSize: 24,
+                    margin: '0 auto 12px',
+                  }}
+                >
+                  ⏳
+                </div>
+                <div style={{ fontSize: 17, fontWeight: 900 }}>Pedido registrado — aguardando pagamento</div>
+                <p style={{ fontSize: 12.5, color: 'var(--txt-1)', maxWidth: 460, margin: '8px auto 0', lineHeight: 1.65 }}>
+                  As horas <b>não</b> são liberadas automaticamente: elas entram assim que a equipe confirmar o
+                  pagamento (ou o provedor avisar o sistema). Você acompanha o status aqui mesmo.
+                </p>
               </div>
-              <div style={{ fontSize: 19, fontWeight: 900, marginBottom: 6 }}>Plano {escolhido.nome} ativado</div>
-              <p style={{ fontSize: 12.5, color: 'var(--txt-2)', marginBottom: 18, lineHeight: 1.6 }}>
-                Todos os packs, export em alta resolução e a IA estão liberados.
-                <br />
-                {config.pagamento.provedor === 'manual' && 'Envie o comprovante para ' + config.emailSuporte + '.'}
-              </p>
-              <button className="btn primary" onClick={concluir} style={{ padding: '11px 26px', fontWeight: 800 }}>
-                Voltar ao editor
+
+              <div style={{ background: 'var(--bg-2)', border: '1px solid var(--line)', borderRadius: 10, padding: 14 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12.5 }}>
+                  <span style={{ color: 'var(--txt-2)' }}>Referência</span>
+                  <b style={{ fontFamily: 'var(--mono)' }}>{pedido.referencia}</b>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12.5, marginTop: 6 }}>
+                  <span style={{ color: 'var(--txt-2)' }}>Valor</span>
+                  <b>{brl(pedido.valor_centavos)}</b>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12.5, marginTop: 6 }}>
+                  <span style={{ color: 'var(--txt-2)' }}>Horas</span>
+                  <b>{horasTexto(pedido.horas)}</b>
+                </div>
+                <div style={{ marginTop: 10, fontSize: 12, color: 'var(--txt-1)', lineHeight: 1.6 }}>
+                  {pedido.chave_pix ? (
+                    <>
+                      <b>Chave PIX:</b> <span style={{ fontFamily: 'var(--mono)' }}>{pedido.chave_pix}</span>
+                    </>
+                  ) : (
+                    <>
+                      O pagamento é combinado com a equipe (PIX). Use a referência <b>{pedido.referencia}</b> para
+                      identificar seu pedido e envie o comprovante abaixo.
+                    </>
+                  )}
+                  <div style={{ color: 'var(--txt-2)', marginTop: 4 }}>{pedido.instrucoes}</div>
+                </div>
+              </div>
+
+              <div style={{ marginTop: 12 }}>
+                <label style={rotulo}>Comprovante (código, ID da transação ou link)</label>
+                <input
+                  style={{ ...campo, marginBottom: 8 }}
+                  value={comprovante}
+                  onChange={(e) => setComprovante(e.target.value)}
+                  placeholder="ex.: E1234567890 ou link do comprovante"
+                  disabled={enviado}
+                />
+                <button className="btn primary" style={{ width: '100%' }} onClick={mandarComprovante} disabled={enviado || processando}>
+                  {enviado ? '✓ Comprovante enviado' : processando ? 'Enviando…' : 'Enviar comprovante'}
+                </button>
+              </div>
+
+              {historico.length > 0 && (
+                <div style={{ marginTop: 16 }}>
+                  <label style={rotulo}>Meus pedidos</label>
+                  <div style={{ display: 'grid', gap: 6 }}>
+                    {historico.slice(0, 5).map((p) => (
+                      <div
+                        key={p.id}
+                        style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          fontSize: 12,
+                          padding: '7px 10px',
+                          borderRadius: 8,
+                          background: 'var(--bg-2)',
+                          border: '1px solid var(--line)',
+                        }}
+                      >
+                        <span style={{ fontFamily: 'var(--mono)' }}>{p.referencia}</span>
+                        <span style={{ color: 'var(--txt-2)' }}>{new Date(p.criado_em).toLocaleDateString('pt-BR')}</span>
+                        <b
+                          style={{
+                            color:
+                              p.status === 'pago' ? 'var(--ok, #34d399)' : p.status === 'recusado' ? 'var(--err, #f87171)' : '#f59e0b',
+                          }}
+                        >
+                          {p.status.toUpperCase()}
+                        </b>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <button className="btn ghost" style={{ width: '100%', marginTop: 14 }} onClick={closeModal}>
+                Fechar
               </button>
             </div>
           )}
+
+          {erro && etapa !== 'dados' && <p style={{ fontSize: 11.5, color: 'var(--err, #f87171)' }}>{erro}</p>}
         </div>
       </div>
     </div>
