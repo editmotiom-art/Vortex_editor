@@ -1,10 +1,10 @@
 {
-  "base": "http://localhost:3001",
+  "base": "https://vortex-editor-beta.vercel.app",
   "checks": [
     {
       "nome": "celular: landing rola com o dedo",
       "ok": true,
-      "extra": "scrollY 612 → 1301 · página 5128px"
+      "extra": "scrollY 737 → 1396 · página 5128px"
     },
     {
       "nome": "celular: botões com área de toque decente",
@@ -39,7 +39,7 @@
     {
       "nome": "pedido gerado com referência e aviso de \"aguardando pagamento\"",
       "ok": true,
-      "extra": "VX938C6193A1"
+      "extra": "VXA85B3C739D"
     },
     {
       "nome": "o sistema avisa que as horas NÃO são liberadas automaticamente",
@@ -89,7 +89,7 @@
     {
       "nome": "exporta VÍDEO (download real)",
       "ok": true,
-      "extra": "download · 9.0 MB"
+      "extra": "download · 8.4 MB"
     },
     {
       "nome": "exporta IMAGEM (Frame PNG)",

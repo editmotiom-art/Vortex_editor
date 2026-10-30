@@ -1,38 +1,51 @@
-# Nome e endereço do sistema
+# Vortex — endereços e estado do sistema
 
-## O que dá para fazer hoje (sem pagar nada)
+## Endereço oficial (usar este)
 
-O endereço atual é **https://vortex-editor-gwyd.vercel.app**.
+**https://vortex-editor-beta.vercel.app**
 
-O trecho `gwyd` é o sufixo automático da Vercel (ela precisa dele porque o nome
-"vortex-editor" já está em uso por outra conta). Dá para trocar por qualquer
-nome livre, no próprio painel:
+- Site (200) e API (`/api/ping` 200, serviço `vortex-api`) no mesmo domínio.
+- Bundle publicado e conferido: `index-DipBY5Ft.js` (rodada do plano por horas).
+- Vídeo de apresentação embutido: `/demo-vortex.mp4` (55,9 s · 1920×1080 · 4,2 MB).
 
-1. Vercel → seu projeto → **Settings → General → Project Name**
-2. Digite o nome (ex.: `vortex-editor-br`, `vortexapp`, `vortexvideo`)
-3. **Save** → a Vercel passa a responder em `https://NOME.vercel.app`
-4. Me avise a nova URL para eu rodar a bateria de testes nela
+Alternativas:
+- `https://vortex-editor-gwyd.vercel.app` (mesmo projeto, endereço antigo)
+- espelho estático `https://editmotiom-art.github.io/Vortex_editor/pages/` (sem API própria; usa a API do beta)
 
-O nome do projeto **não aceita ponto** (`vortex.editor.vercel.app` não existe na
-Vercel: subdomínio é só `nome.vercel.app`). Ponto só com domínio próprio.
+## Banco (Supabase) — contas, planos e pagamentos
 
-## O endereço bonito (`vortexeditor.com`, `vortex.app`…)
+Projeto: `pufuealhmnyllrqholye` (região sa-east-1).
 
-Isso é **domínio próprio**: custa de R$ 40 a R$ 90 por ano (registro.br,
-Namecheap, Cloudflare Registrar). Na Vercel o domínio próprio é **grátis**
-(só o registro é pago):
+| Tabela | Guarda |
+| --- | --- |
+| `vortex_usuarios` | conta, hash bcrypt da senha, papel (cliente/admin) |
+| `vortex_sessoes` | tokens de sessão (30 dias) |
+| `vortex_planos` | horas compradas: início, fim, tipo, origem (cadastro, admin, pagamento) |
+| `vortex_pagamentos` | pedidos: status, valor, referência, comprovante |
+| `vortex_downloads` | histórico de tudo que cada cliente baixou |
+| `vortex_config` | horas de teste, horas e preços de cada plano, chave PIX |
 
-1. Compre o domínio (ex.: `vortexeditor.com.br` no registro.br, ~R$ 40/ano)
-2. Vercel → Settings → **Domains → Add** → digite o domínio
-3. No painel do registrador, aponte o DNS como a Vercel mandar
-   (normalmente `A 76.76.21.21` e `CNAME cname.vercel-dns.com`)
-4. Em ~10 min o site fica em `https://vortexeditor.com.br`, com certificado
-   automático
+RLS ligado e **sem nenhuma policy**: o navegador não lê tabela nenhuma. Só pode chamar
+as funções `vortex_*`, que conferem o token e o papel de admin no próprio banco.
 
-## Enquanto isso
+## Regras do plano (implementadas)
 
-- A página de vendas e o app funcionam igual no endereço `*.vercel.app`.
-- O espelho `https://editmotiom-art.github.io/Vortex_editor/pages/` também está
-  atualizado e passa nos mesmos testes.
-- Quem já tiver o link antigo continua funcionando: nada quebra ao trocar o
-  nome do projeto (o app usa `/api/…` relativo e detecta o host).
+- Não existe plano grátis. Conta nova ganha **horas de teste** definidas em `#admin → Horas de plano` (padrão 1h).
+- Plano é soma de horas: Pro = 24h, Studio = 168h (configurável). Horas novas somam ao que resta.
+- Barra de progresso com o tempo restante no topo do editor, no painel do cliente e no aviso de bloqueio.
+- Pagamento **não libera nada sozinho**: o cliente gera um pedido (referência VX…), manda o comprovante,
+  e o admin confirma em `#admin → Pagamentos`. Aí as horas entram.
+- Sem horas: o editor abre, exportar/baixar/IA mostram o aviso com a barra zerada.
+
+## Comandos
+
+```
+npm run build                 # tipos + pacote
+npm run vercel:dev            # http://localhost:3001 (site + api/*)
+node testarTudo.mjs <URL>     # 24 provas
+node testeHumano.mjs <URL>    # 35 verificações
+node provarPlano.mjs <URL>    # 12 provas de segurança/plano contra o banco
+node provarUi.mjs <URL>       # 10 provas de interface (barra, admin, download)
+node gravar-showcase.mjs <URL>   # grava a tela do vídeo de apresentação
+node montar-showcase.mjs         # monta public/demo-vortex.{mp4,webm}
+```

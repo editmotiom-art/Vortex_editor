@@ -1,0 +1,70 @@
+{
+  "base": "http://localhost:3001",
+  "total": 62.92,
+  "passos": [
+    {
+      "nome": "editor",
+      "inicio": 7.87
+    },
+    {
+      "nome": "midia na timeline",
+      "inicio": 10.42
+    },
+    {
+      "nome": "biblioteca",
+      "inicio": 12.86
+    },
+    {
+      "nome": "baixar conteudo",
+      "inicio": 14.5
+    },
+    {
+      "nome": "link analisado",
+      "inicio": 21.03
+    },
+    {
+      "nome": "acervo",
+      "inicio": 23.18
+    },
+    {
+      "nome": "packs",
+      "inicio": 25.73
+    },
+    {
+      "nome": "legenda e voz",
+      "inicio": 29.01
+    },
+    {
+      "nome": "ia",
+      "inicio": 31.76
+    },
+    {
+      "nome": "conta e plano",
+      "inicio": 34.53
+    },
+    {
+      "nome": "meus downloads",
+      "inicio": 36.36
+    },
+    {
+      "nome": "admin visao",
+      "inicio": 44.63
+    },
+    {
+      "nome": "admin clientes",
+      "inicio": 47.16
+    },
+    {
+      "nome": "admin horas",
+      "inicio": 49.39
+    },
+    {
+      "nome": "admin pagamentos",
+      "inicio": 51.63
+    },
+    {
+      "nome": "exportar",
+      "inicio": 59.52
+    }
+  ]
+}

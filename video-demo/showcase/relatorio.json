@@ -1,0 +1,14 @@
+{
+  "mp4": {
+    "duracao": 55.94,
+    "mb": 4.2,
+    "video": "1920x1080 h264",
+    "audio": "aac"
+  },
+  "webm": {
+    "mb": 3.9
+  },
+  "narracao": 46.896,
+  "legendas": 11,
+  "passos": 16
+}

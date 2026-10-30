@@ -1,0 +1,22 @@
+[
+  {
+    "arquivo": "voz1.mp3",
+    "inicio": 0.8,
+    "duracao": 8.544
+  },
+  {
+    "arquivo": "voz2.mp3",
+    "inicio": 14,
+    "duracao": 10.176
+  },
+  {
+    "arquivo": "voz3.mp3",
+    "inicio": 26,
+    "duracao": 11.208
+  },
+  {
+    "arquivo": "voz4.mp3",
+    "inicio": 37.608,
+    "duracao": 9.288
+  }
+]

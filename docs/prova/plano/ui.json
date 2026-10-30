@@ -1,6 +1,6 @@
 {
-  "base": "http://localhost:3001",
-  "email": "ui.1793369742120@vortex.dev",
+  "base": "https://vortex-editor-beta.vercel.app",
+  "email": "ui.1793372964039@vortex.dev",
   "res": [
     {
       "nome": "sessão do banco é reconhecida ao abrir o site",
@@ -20,7 +20,7 @@
     {
       "nome": "aba Clientes lista a conta criada (veio do banco)",
       "ok": true,
-      "detalhe": "ui.1793369742120@vortex.dev"
+      "detalhe": "ui.1793372964039@vortex.dev"
     },
     {
       "nome": "horas dadas pelo admin aparecem para o cliente (persistiu)",

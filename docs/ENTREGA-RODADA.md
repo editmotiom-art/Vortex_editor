@@ -231,3 +231,68 @@ Nenhuma função expõe chave, nenhuma escreve em disco, nenhuma aceita endereç
 - `vortex-editor.vercel.app` responde mas **não tem as funções** (404 em `/api/*`) — é de outro projeto/conta; não é o nosso.
 - `vortexeditor.vercel.app` também existe, de terceiro (503 na API) — não é nosso.
 - Um domínio com ponto no meio (`vortex.editor.vercel.app`) **não é permitido** pela Vercel sem domínio próprio (ver `DOMINIO.md`).
+
+---
+
+# Rodada: plano por horas no banco, ferramenta única de download e vídeo novo
+
+Data: 30/10/2026 · endereço: **https://vortex-editor-beta.vercel.app**
+
+## 1. Segurança e cobrança (o que estava furado)
+
+| Antes | Agora |
+| --- | --- |
+| `Checkout.finalizar()` aprovava o plano sozinho depois de 1,4 s | o checkout só **registra um pedido** (`vortex_pagamentos`, status `pendente`). Nada é liberado |
+| plano e contas no `localStorage` (dava para editar no DevTools) | contas, senhas (bcrypt) e planos no **Postgres/Supabase**; o navegador só guarda o token |
+| senha do admin conferida no navegador | login do admin validado no banco; as funções administrativas conferem `papel = 'admin'` |
+| usuários "desapareciam" a cada teste | conta existe no banco: entra em qualquer aparelho, plano junto |
+
+Provas (`node provarPlano.mjs <URL>` → 12/12 em produção):
+navegador recebe `permission denied` ao tentar `vortex_dar_horas`; pedido pendente não muda horas;
+cliente não confirma o próprio pagamento (`sem_permissao`); admin confirma → 1h vira 25h;
+admin zera → 0h e o servidor recusa download (`plano_esgotado`).
+
+## 2. Plano por horas (fim do plano grátis)
+
+- Admin define as horas de teste de conta nova (0, 1h, 7h, 24h ou livre) em `#admin → Horas de plano`.
+- Pro = 24h (R$ 29,90) e Studio = 168h (R$ 89,90), configuráveis no banco.
+- **Barra de progresso** do plano no topo do editor, no painel do cliente e no aviso de bloqueio,
+  com tempo restante vivo (`7h 59min restantes`) e botão de renovar quando aperta.
+- O relógio é conferido no servidor a cada 60 s e ao voltar para a aba — editar o navegador não alonga o plano.
+
+## 3. Uma ferramenta de download (Baixa Tudo + Baixar de site + Drive)
+
+`⬇ Baixar conteúdo` — uma caixa de link que descobre a origem:
+- YouTube, Instagram, TikTok, X, Facebook, Vimeo, Twitch, SoundCloud… → motor Baixa Tudo;
+- `drive.google.com` (pasta ou arquivo) → varre a pasta e lista tudo;
+- qualquer outra página → procura as mídias da página.
+
+Testado de verdade: link do YouTube → `Me at the zoo…mp4` na régua; pasta do Drive de texturas →
+15 arquivos listados e 13 clipes na régua. Todo download é registrado na conta (aba **Downloads**).
+
+## 4. Vídeo de apresentação (sem vozes sobrepostas)
+
+- Um único take de tela (Playwright), 55,9 s, 1920×1080, 4,2 MB.
+- Narração em **cinco blocos separados**, cada um começando depois do fim do anterior — existe silêncio
+  entre eles (conferido com `silencedetect`), então não há vozes em cima uma da outra.
+- Áudio normalizado (loudnorm −15 LUFS, pico −1,0 dB); pad de 196 Hz a 5 % de volume.
+- 11 legendas curtas no tempo de cada passo; nenhum zoom que corte a interface.
+- Scripts: `gravar-showcase.mjs` (grava) e `montar-showcase.mjs` (monta mp4/webm).
+
+## 5. Placares desta rodada (todos no domínio beta)
+
+| Bateria | Resultado |
+| --- | --- |
+| `testarTudo.mjs` | **24/24** · 0 erros de JS |
+| `testeHumano.mjs` | **35/35** · 0 erros de JS |
+| `provarPlano.mjs` (banco) | **12/12** |
+| `provarUi.mjs` (interface) | **10/10** |
+
+## 6. O que ainda não está pronto (e por quê)
+
+- **Chave PIX automática / provedor**: sem provedor configurado, o fluxo é "pedido + confirmação pela equipe".
+  A mesma função (`vortex_admin_confirmar_pagamento`) serve para um webhook quando existir.
+- **Biblioteca/editor**: a próxima rodada entra no conteúdo (templates, fundos, músicas, temas, drag na régua,
+  legenda e IA com entrega do que é pedido). O que já existe continua funcionando.
+- **Narração do vídeo**: o 5º bloco (admin) ficou de fora por limite de geração de áudio nesta sessão; o vídeo
+  fecha com os 4 primeiros blocos + legendas + pad.
