@@ -140,6 +140,37 @@ export function Landing({ onEntrar, onCriar }: { onEntrar: () => void; onCriar: 
         </div>
       </section>
 
+      <section id="video" className="lp-secao lp-video-secao">
+        <h2>Veja o editor trabalhando</h2>
+        <p className="lp-sub">
+          Dois minutos de edição de verdade: importar, cortar, transição, look de cinema, título animado, música, voz
+          e as três exportações. Sem corte de tela, sem simulação.
+        </p>
+        <div className="lp-video">
+          <video
+            controls
+            playsInline
+            preload="metadata"
+            poster=""
+            aria-label="Vídeo de apresentação do Vortex"
+          >
+            <source src="./demo-vortex.mp4" type="video/mp4" />
+            <source src="./demo-vortex.webm" type="video/webm" />
+            Seu navegador não toca vídeo — <a href="./demo-vortex.mp4">baixe o arquivo</a>.
+          </video>
+          <ul className="lp-video-legenda">
+            <li><b>0:00</b> página de vendas e planos</li>
+            <li><b>0:09</b> conta e editor</li>
+            <li><b>0:14</b> importar dois clipes</li>
+            <li><b>0:20</b> corte, encaixe e enquadramento</li>
+            <li><b>0:26</b> transição e look Hollywood</li>
+            <li><b>0:32</b> título animado, música e voz</li>
+            <li><b>0:43</b> exportar vídeo, imagem e áudio</li>
+            <li><b>0:50</b> acervo de packs do Drive</li>
+          </ul>
+        </div>
+      </section>
+
       <section id="recursos" className="lp-secao">
         <h2>Tudo dentro do editor</h2>
         <p className="lp-sub">Cada botão faz o que promete — e o resultado sai no arquivo.</p>

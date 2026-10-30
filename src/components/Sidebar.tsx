@@ -7,6 +7,7 @@ import { fmtBytes, fmtTime } from '../lib/anim';
 import { uid } from '../types';
 import type { EffectType } from '../types';
 import { BibliotecaXML } from './BibliotecaXML';
+import { abrirComPlano } from './TopBar';
 
 interface Props {
   onImport: (files: FileList | File[]) => void;
@@ -278,7 +279,7 @@ export function Sidebar({ onImport, onAdicionarTudo, onLimparMidia, mobileOpen }
               </div>
             );
           })}
-          <button className="btn" style={{ width: '100%', marginTop: 8 }} onClick={() => openModal('packs')}>
+          <button className="btn" style={{ width: '100%', marginTop: 8 }} onClick={() => abrirComPlano('packs', 'Acervo e packs')}>
             Ver detalhes de armazenamento
           </button>
         </div>

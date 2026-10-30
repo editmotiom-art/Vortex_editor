@@ -1,0 +1,91 @@
+{
+  "tela": "page@7867697239ffdb396745183e0fd93fe5.webm",
+  "duracaoTela": 65.88,
+  "duracaoFinal": 61.4,
+  "diferenca": 4.48,
+  "capitulos": [
+    {
+      "capitulo": "abertura",
+      "entra_em": 2.12,
+      "dura": 10.44,
+      "termina_em": 12.56
+    },
+    {
+      "capitulo": "conta",
+      "entra_em": 9.16,
+      "dura": 6.53,
+      "termina_em": 15.69
+    },
+    {
+      "capitulo": "importar",
+      "entra_em": 15.27,
+      "dura": 8.04,
+      "termina_em": 23.31
+    },
+    {
+      "capitulo": "cortar",
+      "entra_em": 24.74,
+      "dura": 8.52,
+      "termina_em": 33.26
+    },
+    {
+      "capitulo": "encher",
+      "entra_em": 29.22,
+      "dura": 5.35,
+      "termina_em": 34.57
+    },
+    {
+      "capitulo": "transicao",
+      "entra_em": 31.7,
+      "dura": 6.67,
+      "termina_em": 38.37
+    },
+    {
+      "capitulo": "look",
+      "entra_em": 35.96,
+      "dura": 4.78,
+      "termina_em": 40.74
+    },
+    {
+      "capitulo": "texto",
+      "entra_em": 37.42,
+      "dura": 4.3,
+      "termina_em": 41.72
+    },
+    {
+      "capitulo": "musica",
+      "entra_em": 39.35,
+      "dura": 4.08,
+      "termina_em": 43.43
+    },
+    {
+      "capitulo": "voz",
+      "entra_em": 43.71,
+      "dura": 4.49,
+      "termina_em": 48.2
+    },
+    {
+      "capitulo": "exportar",
+      "entra_em": 49.38,
+      "dura": 6.89,
+      "termina_em": 56.27
+    },
+    {
+      "capitulo": "acervo",
+      "entra_em": 56.01,
+      "dura": 7.78,
+      "termina_em": 63.79
+    },
+    {
+      "capitulo": "fim",
+      "entra_em": 60.22,
+      "dura": 9.84,
+      "termina_em": 70.06
+    }
+  ],
+  "cliques": 17,
+  "arquivos": {
+    "mp4": "3.4 MB",
+    "webm": "3.2 MB"
+  }
+}

@@ -1,0 +1,77 @@
+{
+  "BASE": "http://127.0.0.1:3001",
+  "marca": [
+    {
+      "t": 1.77,
+      "capitulo": "abertura"
+    },
+    {
+      "t": 8.81,
+      "capitulo": "conta"
+    },
+    {
+      "t": 14.92,
+      "capitulo": "importar"
+    },
+    {
+      "t": 24.39,
+      "capitulo": "cortar"
+    },
+    {
+      "t": 28.87,
+      "capitulo": "encher"
+    },
+    {
+      "t": 31.35,
+      "capitulo": "transicao"
+    },
+    {
+      "t": 35.61,
+      "capitulo": "look"
+    },
+    {
+      "t": 37.07,
+      "capitulo": "texto"
+    },
+    {
+      "t": 39,
+      "capitulo": "musica"
+    },
+    {
+      "t": 43.36,
+      "capitulo": "voz"
+    },
+    {
+      "t": 49.03,
+      "capitulo": "exportar"
+    },
+    {
+      "t": 55.66,
+      "capitulo": "acervo"
+    },
+    {
+      "t": 59.87,
+      "capitulo": "fim"
+    }
+  ],
+  "cliques": [
+    9.29,
+    11.36,
+    21.11,
+    23.73,
+    24.84,
+    27.12,
+    27.95,
+    30.54,
+    31.8,
+    33.88,
+    37.07,
+    39.01,
+    40.87,
+    43.8,
+    46.04,
+    49.49,
+    56.1
+  ],
+  "erros": []
+}

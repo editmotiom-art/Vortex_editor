@@ -87,7 +87,6 @@
   body,
   #root {
     min-height: 100%;
-    overscroll-behavior-y: none;
   }
 
   .app {
@@ -531,3 +530,55 @@
 
 /* aviso de girar dispensado pelo usuário */
 .rotate-hint.oculto { display: none !important; }
+
+/* ============================================================
+   ROLAGEM NAS PÁGINAS PÚBLICAS (celular e desktop)
+   ------------------------------------------------------------
+   O editor precisa de html/body com altura cheia (senão o palco e a
+   timeline colapsam). Só as páginas públicas — landing, entrada, checkout
+   e painel — passam a rolar no documento. Escopo por :has() para não
+   tocar no editor.
+   ============================================================ */
+html:has(.landing),
+html:has(.entrar),
+html:has(.checkout-shell),
+html:has(.admin-shell) {
+  height: auto;
+  min-height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-text-size-adjust: 100%;
+  scroll-behavior: smooth;
+}
+body:has(.landing),
+body:has(.entrar),
+body:has(.checkout-shell),
+body:has(.admin-shell) {
+  height: auto;
+  min-height: 100%;
+  overflow: visible;
+  -webkit-overflow-scrolling: touch;
+}
+#root:has(.landing),
+#root:has(.entrar),
+#root:has(.checkout-shell),
+#root:has(.admin-shell) {
+  height: auto;
+  min-height: 100%;
+}
+/* dentro do editor, arrastar objeto/caixa continua sendo gesto da caixa */
+.sel-layer,
+.sel-tag {
+  touch-action: none;
+}
+@media (max-width: 900px) {
+  body:has(.app) {
+    height: 100dvh;
+    overflow: hidden;
+  }
+  .lp-nav {
+    position: sticky;
+    top: 0;
+    max-width: 100%;
+  }
+}

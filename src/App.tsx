@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { TopBar } from './components/TopBar';
+import { TopBar, abrirComPlano } from './components/TopBar';
 import { Sidebar } from './components/Sidebar';
 import { Preview } from './components/Preview';
 import { Inspector } from './components/Inspector';
@@ -22,10 +22,11 @@ import { identityTransform } from './types';
 import { instalarCliques } from './lib/sons';
 import { Admin } from './components/Admin';
 import { Checkout } from './components/Checkout';
+import { AvisoPlano } from './components/AvisoPlano';
 import { lerConfig } from './lib/config';
 import type { ImportedMedia } from './lib/importMedia';
 import { useEditor } from './store/editor';
-import { useUI } from './store/ui';
+import { useUI, type ModalId } from './store/ui';
 import type { MediaAsset } from './types';
 
 /** lê a duração de um arquivo de vídeo/áudio sem decodificar tudo */
@@ -54,6 +55,25 @@ export default function App() {
   const selecao = useEditor((s) => s.selection);
   const loaded = useRef(false);
   const [rota, setRota] = useState<string>(() => location.hash.replace('#', ''));
+  /* portão de plano: qual recurso pago o plano Free tentou usar */
+  const [portao, setPortao] = useState<{ recurso: string; detalhe?: string; modal?: ModalId } | null>(null);
+  const abrirPortao = (recurso: string, detalhe?: string) => setPortao({ recurso, detalhe });
+  const portaoDoStore = useUI((s) => s.portao);
+  useEffect(() => {
+    if (portaoDoStore) {
+      setPortao(portaoDoStore);
+      useUI.getState().setPortao(null);
+    }
+  }, [portaoDoStore]);
+
+  /* pagou? o que ele queria abrir abre sozinho */
+  useEffect(() => {
+    if (!sessao || sessao.plano === 'free') return;
+    if (!portao?.modal) return;
+    const alvo = portao.modal;
+    setPortao(null);
+    useUI.getState().openModal(alvo);
+  }, [sessao?.plano, portao]);
   const [gaveta, setGaveta] = useState<'lib' | 'insp' | null>(null);
 
   /* ---------- no celular, selecionar abre as propriedades ---------- */
@@ -566,7 +586,7 @@ export default function App() {
         >
           ⚙ Propriedades
         </button>
-        <button onClick={() => openModal('export')} title="Exportar">
+        <button onClick={() => abrirComPlano('export', 'Exportar')} title="Exportar">
           ⤒ Exportar
         </button>
       </div>
@@ -625,7 +645,7 @@ export default function App() {
           <span className="ico">⚙</span>
           Ajustes
         </button>
-        <button className="dock-btn" onClick={() => openModal('export')}>
+        <button className="dock-btn" onClick={() => abrirComPlano('export', 'Exportar')}>
           <span className="ico">⤒</span>
           Exportar
         </button>
@@ -652,6 +672,9 @@ export default function App() {
       {modal === 'shortcuts' && <ShortcutsModal />}
       {modal === 'account' && <PainelCliente onSair={() => { setSessao(null); setGaveta(null); }} />}
       {modal === 'checkout' && <Checkout />}
+      {portao && (
+        <AvisoPlano recurso={portao.recurso} detalhe={portao.detalhe} onFechar={() => setPortao(null)} />
+      )}
       {modal === 'xml' && <ImportarXML />}
       {modal === 'baixatudo' && (
         <div className="overlay" onClick={() => useUI.getState().closeModal()}>

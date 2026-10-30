@@ -1,0 +1,18 @@
+import { chromium } from 'playwright';
+const b = await chromium.launch({ channel: 'chromium' });
+const p = await (await b.newContext({ viewport: { width: 1440, height: 810 } })).newPage();
+p.setDefaultTimeout(45000);
+await p.goto('http://127.0.0.1:3001', { waitUntil: 'networkidle' });
+await p.screenshot({ path: '/tmp/p0.png' });
+await p.click('.lp-nav-acoes button:has-text("Abrir editor")');
+await p.waitForTimeout(600);
+await p.screenshot({ path: '/tmp/p1.png' });
+await p.fill('input[placeholder="Como quer ser chamado"]', 'P').catch(() => console.log('sem campo nome'));
+await p.fill('input[type=email]', `p${Date.now()}@v.dev`).catch(() => console.log('sem email'));
+await p.fill('input[type=password]', 'vortex2026').catch(() => console.log('sem senha'));
+await p.click('button:has-text("Criar conta e abrir o editor")').catch(() => console.log('sem botao criar'));
+await p.waitForTimeout(3000);
+await p.screenshot({ path: '/tmp/p2.png' });
+console.log('bandejas:', await p.locator('.bandeja').count(), 'inputs file:', await p.locator('input[type=file]').count());
+console.log('url:', p.url(), '| hash:', await p.evaluate(() => location.hash));
+await b.close();

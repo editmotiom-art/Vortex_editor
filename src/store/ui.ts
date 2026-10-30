@@ -20,6 +20,9 @@ interface UIState {
   installedPacks: string[];
 
   openModal: (m: ModalId) => void;
+  /** portão de plano: recurso pago pedido no plano Free (App mostra o aviso) */
+  portao: { recurso: string; detalhe?: string; modal?: ModalId } | null;
+  setPortao: (p: { recurso: string; detalhe?: string; modal?: ModalId } | null) => void;
   closeModal: () => void;
   toast: (msg: string, tone?: Toast['tone']) => void;
   dismiss: (id: string) => void;
@@ -44,6 +47,8 @@ export const useUI = create<UIState>((set, get) => ({
   sessao: sessaoInicial,
   installedPacks: [],
 
+  portao: null,
+  setPortao: (portao) => set({ portao }),
   openModal: (m) => set({ modal: m }),
   closeModal: () => set({ modal: null }),
 

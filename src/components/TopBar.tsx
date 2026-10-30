@@ -6,6 +6,26 @@ interface Props {
   onImport: (files: FileList | File[]) => void;
 }
 
+/**
+ * PORTÃO DE PLANO
+ * O plano Free conhece o editor, mas exportar, acervo e Baixa Tudo são pagos.
+ * (O aviso em si vive em components/AvisoPlano.tsx, acionado pelo App.)
+ */
+const podeUsarPago = () => {
+  const plano = useUI.getState().sessao?.plano;
+  return !(!plano || plano === 'free');
+};
+
+/** abre o modal pedido ou avisa que é recurso do plano pago */
+export const abrirComPlano = (modal: 'export' | 'packs' | 'baixatudo', recurso: string) => {
+  const ui = useUI.getState();
+  if (podeUsarPago()) {
+    ui.openModal(modal);
+    return;
+  }
+  ui.setPortao?.({ recurso, modal });
+};
+
 export function TopBar({ onImport }: Props) {
   const { doc, renameProject, save, undo, redo, past, future, reset } = useEditor();
   const { openModal, user, tema, setTema } = useUI();
@@ -21,7 +41,7 @@ export function TopBar({ onImport }: Props) {
       }
       if (meta && e.key.toLowerCase() === 'e') {
         e.preventDefault();
-        openModal('export');
+        abrirComPlano('export', 'Exportar');
       }
     };
     window.addEventListener('keydown', onKey);
@@ -84,7 +104,7 @@ export function TopBar({ onImport }: Props) {
       </button>
       <button
         className="btn ghost"
-        onClick={() => openModal('baixatudo')}
+        onClick={() => abrirComPlano('baixatudo', 'Baixa Tudo')}
         title="Baixa Tudo — trazer vídeo do YouTube, Instagram, TikTok, Vimeo…"
       >
         ⬇ Baixa Tudo
@@ -103,7 +123,7 @@ export function TopBar({ onImport }: Props) {
       >
         🎙 Legenda
       </button>
-      <button className="btn ghost" onClick={() => openModal('packs')} title="Conteúdo e packs">
+      <button className="btn ghost" onClick={() => abrirComPlano('packs', 'Acervo e packs')} title="Conteúdo e packs">
         Conteúdo
       </button>
       <button className="btn ghost" onClick={() => openModal('shortcuts')} title="Atalhos (?)">
@@ -166,7 +186,7 @@ export function TopBar({ onImport }: Props) {
         )}
       </button>
 
-      <button className="btn primary" onClick={() => openModal('export')}>
+      <button className="btn primary" onClick={() => abrirComPlano('export', 'Exportar')}>
         Exportar
       </button>
     </div>

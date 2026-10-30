@@ -101,6 +101,41 @@ export class MediaCache implements MediaPool {
   }
 }
 
+/**
+ * ÚLTIMO QUADRO BOM DE CADA VÍDEO
+ * ------------------------------------------------------------
+ * Quando o playhead anda, o <video> entra em "seeking" e o navegador devolve
+ * um quadro vazio — o compositor desenhava PRETO e o palco piscava enquanto se
+ * edita. Guardamos o último quadro decodificado em um canvas fora de tela e
+ * usamos ele enquanto o vídeo busca o próximo. O palco nunca fica preto.
+ */
+const ultimoQuadro = new WeakMap<HTMLVideoElement, HTMLCanvasElement>();
+
+function quadroBom(v: HTMLVideoElement): HTMLCanvasElement | null {
+  const pronto = v.readyState >= 2 && v.videoWidth > 0 && v.videoHeight > 0;
+  if (pronto && !v.seeking) {
+    let c = ultimoQuadro.get(v);
+    if (!c) {
+      c = document.createElement('canvas');
+      ultimoQuadro.set(v, c);
+    }
+    if (c.width !== v.videoWidth || c.height !== v.videoHeight) {
+      c.width = v.videoWidth;
+      c.height = v.videoHeight;
+    }
+    const cx = c.getContext('2d');
+    if (cx) {
+      try {
+        cx.drawImage(v, 0, 0, c.width, c.height);
+        return c;
+      } catch {
+        /* ignora quadro protegido */
+      }
+    }
+  }
+  return ultimoQuadro.get(v) ?? null;
+}
+
 export interface TextStyleResolver {
   fontSize(el: Element, doc: ProjectDoc): number;
 }
@@ -176,10 +211,12 @@ export function renderFrame(
     switch (el.type) {
       case 'video':
       case 'image': {
-        const src = el.assetId ? opt.pool.get(el.assetId) : null;
+        const bruto = el.assetId ? opt.pool.get(el.assetId) : null;
+        const src = bruto instanceof HTMLVideoElement ? (quadroBom(bruto) ?? bruto) : bruto;
         if (src) {
-          const sw = src instanceof HTMLVideoElement ? src.videoWidth : src.naturalWidth;
-          const sh = src instanceof HTMLVideoElement ? src.videoHeight : src.naturalHeight;
+          const ehVid = bruto instanceof HTMLVideoElement;
+          const sw = ehVid ? ((src as HTMLCanvasElement).width || bruto.videoWidth) : (src as HTMLImageElement).naturalWidth;
+          const sh = ehVid ? ((src as HTMLCanvasElement).height || bruto.videoHeight) : (src as HTMLImageElement).naturalHeight;
           if (sw && sh) {
             // Ajuste automático: nunca deixa tarja preta e nunca passa de 1.35×
             // (mídia muito mais estreita que o quadro fica contida, com fundo).

@@ -1,0 +1,191 @@
+{
+  "base": "http://127.0.0.1:3001",
+  "checks": [
+    {
+      "nome": "celular: landing rola com o dedo",
+      "ok": true,
+      "extra": "scrollY 661 → 1364 · página 4654px"
+    },
+    {
+      "nome": "celular: botões com área de toque decente",
+      "ok": false,
+      "extra": "8 abaixo de 36px"
+    },
+    {
+      "nome": "cadastro abre o editor",
+      "ok": true,
+      "extra": ""
+    },
+    {
+      "nome": "plano FREE: exportar pede assinatura (portão)",
+      "ok": false,
+      "extra": "liberou sem plano"
+    },
+    {
+      "nome": "portão leva ao checkout",
+      "ok": false,
+      "extra": ""
+    },
+    {
+      "nome": "checkout mostra planos e preço",
+      "ok": false,
+      "extra": ""
+    },
+    {
+      "nome": "checkout pede dados do cliente",
+      "ok": false,
+      "extra": "1 campos"
+    },
+    {
+      "nome": "checkout oferece Pix",
+      "ok": false,
+      "extra": ""
+    },
+    {
+      "nome": "checkout oferece cartão",
+      "ok": false,
+      "extra": ""
+    },
+    {
+      "nome": "painel do cliente abre",
+      "ok": true,
+      "extra": ""
+    },
+    {
+      "nome": "voz gera clipe de áudio",
+      "ok": true,
+      "extra": "5.7s"
+    },
+    {
+      "nome": "chat com skills abre",
+      "ok": true,
+      "extra": ""
+    },
+    {
+      "nome": "gerador de texto (grátis) responde",
+      "ok": true,
+      "extra": "167 caracteres"
+    },
+    {
+      "nome": "plano Pro: exportar abre direto",
+      "ok": true,
+      "extra": ""
+    },
+    {
+      "nome": "exporta VÍDEO (download real)",
+      "ok": false,
+      "extra": "sem download"
+    },
+    {
+      "nome": "exporta IMAGEM (Frame PNG)",
+      "ok": false,
+      "extra": "sem download"
+    },
+    {
+      "nome": "exporta ÁUDIO (WAV)",
+      "ok": false,
+      "extra": "sem download"
+    },
+    {
+      "nome": "acervo: catálogo de packs",
+      "ok": true,
+      "extra": "163 packs"
+    },
+    {
+      "nome": "Baixa Tudo abre com plano Pro",
+      "ok": true,
+      "extra": ""
+    },
+    {
+      "nome": "Extrair de site abre",
+      "ok": true,
+      "extra": ""
+    },
+    {
+      "nome": "Importar XML (Alight Motion) abre",
+      "ok": true,
+      "extra": ""
+    },
+    {
+      "nome": "admin entra com a conta do dono",
+      "ok": true,
+      "extra": "15 abas"
+    },
+    {
+      "nome": "admin: aba Visão geral",
+      "ok": true,
+      "extra": "Visão geral"
+    },
+    {
+      "nome": "admin: aba Clientes",
+      "ok": true,
+      "extra": "Clientes"
+    },
+    {
+      "nome": "admin: aba Planos e preços",
+      "ok": true,
+      "extra": "Planos e preços"
+    },
+    {
+      "nome": "admin: aba Pagamento",
+      "ok": true,
+      "extra": "Pagamento"
+    },
+    {
+      "nome": "admin: aba Inteligência artificial",
+      "ok": true,
+      "extra": "Inteligência artificial"
+    },
+    {
+      "nome": "admin: aba Voz e narração",
+      "ok": true,
+      "extra": "Voz e narração"
+    },
+    {
+      "nome": "admin: aba Skills do chat",
+      "ok": true,
+      "extra": "Skills do chat"
+    },
+    {
+      "nome": "admin: aba Pack do Editor",
+      "ok": true,
+      "extra": "Pack do Editor 4.0"
+    },
+    {
+      "nome": "admin: aba API e hospedagem",
+      "ok": true,
+      "extra": "API e hospedagem"
+    }
+  ],
+  "seguranca": [
+    [
+      "drive com caminho de arquivo",
+      400
+    ],
+    [
+      "proxy para IP interno (metadata)",
+      400
+    ],
+    [
+      "proxy para file://",
+      400
+    ],
+    [
+      "ação inexistente em ferramentas",
+      400
+    ],
+    [
+      "rota inexistente",
+      404
+    ],
+    [
+      "admin sem senha mostra conteúdo",
+      "bloqueado"
+    ],
+    [
+      "sessão de admin forjada no navegador",
+      "bloqueado"
+    ]
+  ],
+  "errosJs": []
+}
