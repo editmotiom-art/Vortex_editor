@@ -14,3 +14,13 @@ roteiro-demo.mjs
 whispertest.mjs
 inspect.mjs
 .vercel-dev/
+video-demo/
+docs/prova/
+probe*.mjs
+gesto.mjs
+comp*.mjs
+diagToque*.mjs
+diagRolagem.mjs
+montar-demo.mjs
+gravar-demo*.mjs
+testeHumano.mjs
