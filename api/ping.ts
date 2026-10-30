@@ -1,7 +1,11 @@
-/** /api/ping — teste de vida da API na Vercel */
-import type { VercelRequest, VercelResponse } from '@vercel/node';
+/* /api/ping — teste de vida da API na Vercel (sem dependências) */
+type Res = {
+  status: (codigo: number) => Res;
+  json: (obj: unknown) => void;
+  setHeader: (nome: string, valor: string) => void;
+};
 
-export default function handler(_req: VercelRequest, res: VercelResponse): void {
+export default function handler(_req: unknown, res: Res): void {
   res.setHeader('access-control-allow-origin', '*');
   res.status(200).json({
     ok: true,

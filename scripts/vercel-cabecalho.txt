@@ -1,0 +1,70 @@
+/* ==========================================================================
+ * FUNÇÃO DE SERVIDOR NA VERCEL — arquivo GERADO automaticamente
+ * por scripts/gerar-api-vercel.mjs a partir de netlify/functions/<nome>.ts
+ * A lógica é a mesma nos dois hosts (uma lógica só).
+ * Não edite à mão: edite a versão da Netlify e rode o gerador.
+ * ========================================================================== */
+
+/** a função fala Request → Response; aqui ela é adaptada ao Node da Vercel */
+type VercelReq = {
+  method?: string;
+  url?: string;
+  headers: Record<string, string | string[] | undefined>;
+  body?: unknown;
+  [k: string]: unknown;
+};
+type VercelRes = {
+  statusCode: number;
+  status: (codigo: number) => VercelRes;
+  setHeader: (nome: string, valor: string) => void;
+  end: (corpo?: unknown) => void;
+  json: (obj: unknown) => void;
+  send: (dados: unknown) => void;
+  headersSent?: boolean;
+};
+
+const corpoCru = (req: VercelReq): string | undefined => {
+  const metodo = (req.method ?? 'GET').toUpperCase();
+  if (!['POST', 'PUT', 'PATCH', 'DELETE'].includes(metodo)) return undefined;
+  const b = req.body;
+  if (b === undefined || b === null) return undefined;
+  if (typeof b === 'string') return b;
+  if (typeof Buffer !== 'undefined' && Buffer.isBuffer(b)) return b.toString('utf8');
+  return JSON.stringify(b);
+};
+
+/** converte o pedido da Vercel em Request padrão e escreve a resposta */
+const responder = async (
+  req: VercelReq,
+  res: VercelRes,
+  fn: (r: Request) => Promise<Response>,
+): Promise<void> => {
+  const h = req.headers ?? {};
+  const host = String(h['x-forwarded-host'] ?? h.host ?? 'localhost');
+  const proto = String(h['x-forwarded-proto'] ?? 'https');
+  const url = String(req.url ?? '/');
+  const cabecalhos = new Headers();
+  for (const [k, v] of Object.entries(h)) {
+    if (v === undefined) continue;
+    if (Array.isArray(v)) v.forEach((x) => cabecalhos.append(k, String(x)));
+    else cabecalhos.set(k, String(v));
+  }
+  const init: RequestInit = { method: (req.method ?? 'GET').toUpperCase(), headers: cabecalhos };
+  const corpo = corpoCru(req);
+  if (corpo !== undefined) init.body = corpo;
+
+  let resposta: Response;
+  try {
+    resposta = await fn(new Request(proto + '://' + host + url, init));
+  } catch (e) {
+    res.status(500).json({ ok: false, erro: 'função falhou: ' + (e as Error).message });
+    return;
+  }
+  res.status(resposta.status);
+  resposta.headers.forEach((valor, chave) => {
+    if (['content-encoding', 'content-length', 'transfer-encoding'].includes(chave)) return;
+    res.setHeader(chave, valor);
+  });
+  res.end(Buffer.from(await resposta.arrayBuffer()));
+};
+

@@ -12,7 +12,8 @@
     "serve": "node netlify/dev-server.mjs 8888",
     "local": "npm run build && node netlify/dev-server.mjs 8888",
     "vercel:dev": "npm run build && node vercel-dev.mjs 3001",
-    "vercel:api": "node vercel-dev.mjs 3001"
+    "vercel:api": "node scripts/gerar-api-vercel.mjs --check || node scripts/gerar-api-vercel.mjs",
+    "api:gerar": "node scripts/gerar-api-vercel.mjs"
   },
   "dependencies": {
     "@huggingface/transformers": "^3.8.1",
