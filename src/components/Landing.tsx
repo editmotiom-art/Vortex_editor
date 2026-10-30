@@ -186,15 +186,16 @@ export function Landing({ onEntrar, onCriar }: { onEntrar: () => void; onCriar: 
       <section id="video" className="lp-secao lp-video-secao">
         <h2>Veja o editor trabalhando</h2>
         <p className="lp-sub">
-          Dois minutos de edição de verdade: importar, cortar, transição, look de cinema, título animado, música, voz
-          e as três exportações. Sem corte de tela, sem simulação.
+          70 segundos, cinco capítulos, uma voz por capítulo. Tudo o que aparece na tela aconteceu de verdade na
+          gravação: conta criada no banco, música baixada da biblioteca, arquivo do Drive entrando na timeline,
+          narração gerada pelo servidor e exportação.
         </p>
         <div className="lp-video">
           <video
             controls
             playsInline
             preload="metadata"
-            poster=""
+            poster="./prova-dragao.jpg"
             aria-label="Vídeo de apresentação do Vortex"
           >
             <source src="./demo-vortex.mp4" type="video/mp4" />
@@ -202,14 +203,11 @@ export function Landing({ onEntrar, onCriar }: { onEntrar: () => void; onCriar: 
             Seu navegador não toca vídeo — <a href="./demo-vortex.mp4">baixe o arquivo</a>.
           </video>
           <ul className="lp-video-legenda">
-            <li><b>0:00</b> página de vendas e planos</li>
-            <li><b>0:09</b> conta e editor</li>
-            <li><b>0:14</b> importar dois clipes</li>
-            <li><b>0:20</b> corte, encaixe e enquadramento</li>
-            <li><b>0:26</b> transição e look Hollywood</li>
-            <li><b>0:32</b> título animado, música e voz</li>
-            <li><b>0:43</b> exportar vídeo, imagem e áudio</li>
-            <li><b>0:50</b> acervo de packs do Drive</li>
+            <li><b>0:00</b> o editor aberto (1/5)</li>
+            <li><b>0:13</b> biblioteca: música, SFX, foto e vídeo reais (2/5)</li>
+            <li><b>0:26</b> conteúdo do Drive direto na timeline (3/5)</li>
+            <li><b>0:42</b> legenda e narração com vozes diferentes (4/5)</li>
+            <li><b>0:56</b> plano por horas, downloads e exportação (5/5)</li>
           </ul>
         </div>
       </section>

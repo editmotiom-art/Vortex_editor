@@ -6,7 +6,7 @@
 
 - Site (200) e API (`/api/ping` 200, serviço `vortex-api`) no mesmo domínio.
 - Bundle publicado e conferido: `index-DipBY5Ft.js` (rodada do plano por horas).
-- Vídeo de apresentação embutido: `/demo-vortex.mp4` (55,9 s · 1920×1080 · 4,2 MB).
+- Vídeo de apresentação embutido: `/demo-vortex.mp4` (70,7 s · 1920×1080 · 4,0 MB · 5 capítulos, uma narração por capítulo).
 
 Alternativas:
 - `https://vortex-editor-gwyd.vercel.app` (mesmo projeto, endereço antigo)
