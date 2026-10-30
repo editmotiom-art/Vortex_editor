@@ -178,23 +178,29 @@ await page.locator('.topbar button:has-text("Exportar")').click();
 await espera(page, 1200);
 ok('plano Pro: exportar abre direto', await page.locator('.overlay:has-text("Exportar")').count());
 await page.screenshot({ path: `${PASTA}/10-exportar.png` });
-const baixar = page.waitForEvent('download', { timeout: 240000 }).catch(() => null);
-await page.locator('.overlay button:has-text("Exportar vídeo")').click({ timeout: 15000 }).catch(() => {});
-const arquivo = await baixar;
-ok('exporta VÍDEO (download real)', arquivo, arquivo ? await arquivo.suggestedFilename() : 'sem download');
-if (arquivo) await arquivo.saveAs(`${PASTA}/export-video.${(await arquivo.suggestedFilename()).split('.').pop()}`);
-// frame PNG
-const baixarPng = page.waitForEvent('download', { timeout: 60000 }).catch(() => null);
-await page.locator('.overlay button:has-text("Frame PNG")').click().catch(() => {});
-const png = await baixarPng;
-ok('exporta IMAGEM (Frame PNG)', png, png ? await png.suggestedFilename() : 'sem download');
-if (png) await png.saveAs(`${PASTA}/export-frame.png`);
-// só áudio
-const baixarWav = page.waitForEvent('download', { timeout: 120000 }).catch(() => null);
-await page.locator('.overlay button:has-text("Só áudio")').click().catch(() => {});
-const wav = await baixarWav;
-ok('exporta ÁUDIO (WAV)', wav, wav ? await wav.suggestedFilename() : 'sem download');
-if (wav) await wav.saveAs(`${PASTA}/export-audio.wav`);
+const baixarArquivo = async (rotulo) => {
+  await page.locator(`.overlay button:has-text("${rotulo}")`).click({ timeout: 15000 }).catch(() => {});
+  // espera o arquivo ficar pronto (a prévia aparece com "Baixar este arquivo")
+  for (let i = 0; i < 120; i += 1) {
+    await espera(page, 1000);
+    if (await page.locator('.overlay button:has-text("Baixar este arquivo")').count()) break;
+  }
+  const esperaDownload = page.waitForEvent('download', { timeout: 90000 }).catch(() => null);
+  await page.locator('.overlay button:has-text("Baixar este arquivo")').click({ timeout: 8000 }).catch(() => {});
+  const d = await esperaDownload;
+  if (!d) return null;
+  const nome = await d.suggestedFilename();
+  const destino = `${PASTA}/${rotulo.replace(/\W+/g, '-').toLowerCase()}-${nome}`;
+  await d.saveAs(destino);
+  return { nome, destino, tamanho: fs.statSync(destino).size };
+};
+
+const video = await baixarArquivo('Exportar vídeo');
+ok('exporta VÍDEO (download real)', video && video.tamanho > 200000, video ? `${video.nome} · ${(video.tamanho / 1024 / 1024).toFixed(1)} MB` : 'sem download');
+const png2 = await baixarArquivo('Frame PNG');
+ok('exporta IMAGEM (Frame PNG)', png2 && png2.tamanho > 5000, png2 ? `${png2.nome} · ${(png2.tamanho / 1024).toFixed(0)} KB` : 'sem download');
+const wav2 = await baixarArquivo('Só áudio');
+ok('exporta ÁUDIO (WAV)', wav2 && wav2.tamanho > 5000, wav2 ? `${wav2.nome} · ${(wav2.tamanho / 1024).toFixed(0)} KB` : 'sem download');
 await page.locator('.overlay .modal-head button').last().click({ force: true }).catch(() => {});
 await espera(page, 500);
 

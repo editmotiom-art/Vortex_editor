@@ -1,15 +1,15 @@
 {
-  "base": "http://127.0.0.1:3001",
+  "base": "https://vortex-editor-gwyd.vercel.app",
   "checks": [
     {
       "nome": "celular: landing rola com o dedo",
       "ok": true,
-      "extra": "scrollY 661 → 1364 · página 4654px"
+      "extra": "scrollY 699 → 1338 · página 5290px"
     },
     {
       "nome": "celular: botões com área de toque decente",
-      "ok": false,
-      "extra": "8 abaixo de 36px"
+      "ok": true,
+      "extra": "1 abaixo de 36px"
     },
     {
       "nome": "cadastro abre o editor",
@@ -18,32 +18,32 @@
     },
     {
       "nome": "plano FREE: exportar pede assinatura (portão)",
-      "ok": false,
-      "extra": "liberou sem plano"
+      "ok": true,
+      "extra": "aviso exibido"
     },
     {
       "nome": "portão leva ao checkout",
-      "ok": false,
+      "ok": true,
       "extra": ""
     },
     {
       "nome": "checkout mostra planos e preço",
-      "ok": false,
-      "extra": ""
+      "ok": true,
+      "extra": "R$ 29,90/por mês"
     },
     {
       "nome": "checkout pede dados do cliente",
-      "ok": false,
-      "extra": "1 campos"
+      "ok": true,
+      "extra": "3 campos"
     },
     {
       "nome": "checkout oferece Pix",
-      "ok": false,
+      "ok": true,
       "extra": ""
     },
     {
       "nome": "checkout oferece cartão",
-      "ok": false,
+      "ok": true,
       "extra": ""
     },
     {
@@ -64,7 +64,7 @@
     {
       "nome": "gerador de texto (grátis) responde",
       "ok": true,
-      "extra": "167 caracteres"
+      "extra": "936 caracteres"
     },
     {
       "nome": "plano Pro: exportar abre direto",
@@ -73,18 +73,18 @@
     },
     {
       "nome": "exporta VÍDEO (download real)",
-      "ok": false,
-      "extra": "sem download"
+      "ok": true,
+      "extra": "download · 8.9 MB"
     },
     {
       "nome": "exporta IMAGEM (Frame PNG)",
-      "ok": false,
-      "extra": "sem download"
+      "ok": true,
+      "extra": "download · 195 KB"
     },
     {
       "nome": "exporta ÁUDIO (WAV)",
-      "ok": false,
-      "extra": "sem download"
+      "ok": true,
+      "extra": "download · 2252 KB"
     },
     {
       "nome": "acervo: catálogo de packs",

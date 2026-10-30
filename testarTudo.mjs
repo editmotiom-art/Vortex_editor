@@ -40,6 +40,29 @@ await p.fill('input[type=password]', 'vortex2026');
 await p.click('button:has-text("Criar conta e abrir o editor")');
 await p.waitForTimeout(1800);
 
+/* ============ 0. PORTÃO DE PLANO (antes de assinar) ============ */
+await p.locator('.topbar button:has-text("Exportar")').click();
+await p.waitForTimeout(800);
+const portaoApareceu = await p.locator('.plano-portao').count();
+ok('plano Free: exportar pede assinatura', portaoApareceu, portaoApareceu ? 'aviso exibido' : 'liberou');
+if (portaoApareceu) {
+  ok('aviso mostra o preço do painel', /R\$/.test(await p.locator('.plano-portao').innerText()));
+  await p.locator('.plano-portao button:has-text("Ver planos e assinar")').click();
+  await p.waitForTimeout(1000);
+  ok('aviso leva ao checkout', await p.locator('.modal:has-text("Assinar")').count());
+  await p.locator('.overlay .modal-head button').last().click({ force: true }).catch(() => {});
+  await p.waitForTimeout(400);
+}
+// assinatura aprovada (o teste das funções pagas roda com plano Pro)
+await p.evaluate(() => {
+  const contas = JSON.parse(localStorage.getItem('vortex.contas.v1') ?? '[]');
+  if (contas[0]) { contas[0].plano = 'pro'; localStorage.setItem('vortex.contas.v1', JSON.stringify(contas)); }
+  const s = JSON.parse(localStorage.getItem('vortex.sessao.v1') ?? '{}');
+  localStorage.setItem('vortex.sessao.v1', JSON.stringify({ ...s, plano: 'pro' }));
+});
+await p.reload({ waitUntil: 'networkidle' });
+await p.waitForTimeout(2200);
+
 /* ================= 1. VOZ ================= */
 await p.locator('.topbar button:has-text("Legenda")').first().click({ force: true });
 await p.waitForSelector('.tr-painel', { timeout: 20000 });

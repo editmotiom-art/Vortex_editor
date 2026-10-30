@@ -159,3 +159,75 @@ A Netlify continua bloqueando **deploy novo** (403 crédito), mas as funções j
 publicadas seguem no ar — é isso que mantém o sistema 100% funcional agora.
 Quando houver crédito, `npm run build && npx netlify deploy --prod …` publica a
 versão nova também lá, sem mudar nada no endereço acima.
+
+---
+
+## Rodada: rolagem no celular, vídeo novo, portão de plano, teste humano e segurança (29/10/2026)
+
+### 1. Landing não rolava no celular — CAUSA ENCONTRADA E CORRIGIDA
+
+Duas causas reais (medidas com gesto de dedo de verdade no Chromium, não com `scrollTo`):
+
+| Causa | Onde | Correção |
+|---|---|---|
+| `.landing { overflow-y: auto }` transformava a página numa caixa rolável de altura própria — o gesto morria ali | `src/styles/global.css` | `overflow: visible` + comentário explicando |
+| `body { touch-action: pan-y; overscroll-behavior-y: contain }` bloqueava o arraste no Chrome Android | `src/styles/mobile.css` | removidos do editor inteiro; rolagem é declarada **só** para as páginas públicas via `:has(.landing)` |
+
+Prova: `docs/prova/30-rolagem-celular.png` e o teste `testeHumano.mjs` → **scrollY 585 → 1271** com três gestos de toque.
+
+> Correção de um erro meu no caminho: na primeira tentativa eu apliquei `html/body { height:auto; overflow:visible }` global — isso **quebrou o palco do editor** (canvas virou uma faixa). Foi revertido e reescopado com `:has()`.
+
+### 2. Vídeo de apresentação novo (edição real, áudio no tempo)
+
+- `gravar-demo-v2.mjs` executa uma edição de verdade no sistema e marca o segundo exato de cada capítulo; `montar-demo.mjs` encaixa a narração por ffmpeg no ponto marcado (nada de gravar áudio junto com a tela — era a causa do atraso antigo).
+- 13 capítulos: landing → conta → importar 2 clipes → cortar → enquadrar → transição → look Hollywood → título animado → música + SFX → voz TTS → exportar (vídeo/PNG/WAV) → acervo de packs → fecho.
+- Áudio: narração + trilha suave + clique em cada ação, normalizado em **−16 LUFS** (antes: −35,6 dB médio, o que soava baixo e arrastado). Agora: **−18,9 dB médio, pico −1,9 dB**.
+- Sincronia verificada por medição: energia do áudio medida em cada capítulo (`relatorio.json`), diferença de duração vídeo×áudio = **0,00 s**.
+- Arquivos: `public/demo-vortex.mp4` (1080p, H.264+AAC, 3,4 MB) e `.webm` (3,2 MB). Já está **na página de vendas**, logo abaixo do topo, com legenda de tempos (`docs/prova/31-video-celular.png`).
+
+### 3. Bug real de edição corrigido no renderizador
+
+Enquanto se arrasta o playhead, o `<video>` entra em `seeking` e o navegador devolve quadro vazio → o palco piscava **preto**. Agora `src/lib/renderer.ts` guarda o **último quadro bom** de cada vídeo em um canvas fora de tela e o usa enquanto busca o próximo (`quadroBom`).
+
+### 4. Portão de plano (acesso sem pagar)
+
+- `src/components/AvisoPlano.tsx`: plano **Free** abre o editor, mas **Exportar**, **Acervo/packs** e **Baixa Tudo** mostram o aviso com o preço que está em `#admin → Planos e preços` e levam ao checkout.
+- Todos os botões passam pelo portão (`abrirComPlano` em `TopBar`/`Sidebar`/`App`). Depois de assinar, o modal que ele queria abre sozinho.
+- Testado: portão aparece, mostra R$ 29,90/mês, leva ao checkout.
+
+### 5. Teste humano completo (Chromium real, no domínio público)
+
+`node testeHumano.mjs https://vortex-editor-gwyd.vercel.app` → **31/31**, 0 erro de JS. Cobre:
+
+- celular: rolagem por gesto + área de toque dos botões
+- cadastro → editor; portão de plano; checkout (planos, dados, **Pix**, **cartão**); painel do cliente
+- voz (clipe de 5,7 s), chat com skills, gerador de texto grátis
+- **exportações reais baixadas e validadas**: vídeo 8,9 MB (VP9 1080×1920 + áudio), PNG 195 KB, WAV 2,2 MB
+- acervo (163 packs), Baixa Tudo, Extrair de site, Importar XML
+- admin: 15 abas abertas uma por uma (Visão geral, Clientes, Planos, Pagamento, IA, Voz, Skills, Packs, API…)
+- segurança (abaixo)
+
+E o teste de regressão `testarTudo.mjs` → **22/22** em produção e **22/22** no espelho do GitHub Pages.
+
+### 6. Segurança / tentativa de invasão
+
+| Ataque | Resultado |
+|---|---|
+| `/api/drive?pasta=../../etc/passwd` | **400** (valida ID) |
+| `/api/proxy?url=http://169.254.169.254/latest/meta-data/` (metadata da nuvem) | **400** (bloqueia IP interno) |
+| `/api/proxy?url=file:///etc/passwd` | **400** (só http/https) |
+| `POST /api/ferramentas` com ação inventada | **400** |
+| rota `/api/inexistente` | **404** |
+| abrir `#admin` sem senha | **bloqueado** (pede login) |
+| forjar `vortex.admin.v1` no localStorage | **bloqueado** (a sessão de admin não é só isso) |
+
+Nenhuma função expõe chave, nenhuma escreve em disco, nenhuma aceita endereço interno. Relatório: `docs/prova/humano/relatorio.json`.
+
+**Limite honesto (documentado, não é bug escondido):** o plano do cliente fica no `localStorage`, então o portão é de **interface**. Quem abre o DevTools consegue se marcar como Pro. O pagamento hoje também é **simulado** (ativa o plano após 1,4 s) enquanto o provedor está como "nenhum"/"manual"; para cobrar de verdade é preciso (a) chave do Mercado Pago/Stripe em `#admin → Pagamento`, e (b) verificação no servidor + Supabase para guardar plano — próximo passo natural, já com o Supabase disponível.
+
+### 7. Endereço / nome do sistema
+
+- **Oficial: https://vortex-editor-gwyd.vercel.app** (site + API, 31/31).
+- `vortex-editor.vercel.app` responde mas **não tem as funções** (404 em `/api/*`) — é de outro projeto/conta; não é o nosso.
+- `vortexeditor.vercel.app` também existe, de terceiro (503 na API) — não é nosso.
+- Um domínio com ponto no meio (`vortex.editor.vercel.app`) **não é permitido** pela Vercel sem domínio próprio (ver `DOMINIO.md`).
