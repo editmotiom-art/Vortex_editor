@@ -4,7 +4,7 @@
     {
       "nome": "celular: landing rola com o dedo",
       "ok": true,
-      "extra": "scrollY 737 → 1396 · página 5128px"
+      "extra": "scrollY 651 → 1338 · página 5128px"
     },
     {
       "nome": "celular: botões com área de toque decente",
@@ -39,7 +39,7 @@
     {
       "nome": "pedido gerado com referência e aviso de \"aguardando pagamento\"",
       "ok": true,
-      "extra": "VXA85B3C739D"
+      "extra": "VX7CBD4D7407"
     },
     {
       "nome": "o sistema avisa que as horas NÃO são liberadas automaticamente",
@@ -89,7 +89,7 @@
     {
       "nome": "exporta VÍDEO (download real)",
       "ok": true,
-      "extra": "download · 8.4 MB"
+      "extra": "download · 8.7 MB"
     },
     {
       "nome": "exporta IMAGEM (Frame PNG)",
