@@ -2383,3 +2383,142 @@ img, video, canvas { max-width: 100%; }
   .barra-plano.compacta { display: none; }
   .bc-lista { max-height: 38vh; }
 }
+
+/* ============ BIBLIOTECA — mídia real ============ */
+.lib-modo {
+  display: flex;
+  gap: 4px;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--line);
+  background: var(--bg2);
+  position: sticky;
+  top: 0;
+  z-index: 3;
+}
+.lib-modo button {
+  flex: 1;
+  font-size: 10.5px;
+  font-weight: 600;
+  padding: 6px 4px;
+  border-radius: 7px;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--fg2);
+  cursor: pointer;
+}
+.lib-modo button.active {
+  background: var(--acc);
+  border-color: var(--acc);
+  color: #041014;
+}
+.bib-real-lista {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
+  gap: 7px;
+}
+.bib-real-card {
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  overflow: hidden;
+  background: var(--bg2);
+  display: flex;
+  flex-direction: column;
+}
+.bib-real-capa {
+  position: relative;
+  aspect-ratio: 16 / 10;
+  display: grid;
+  place-items: center;
+  font-size: 22px;
+  color: #fff;
+  overflow: hidden;
+}
+.bib-real-capa img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.bib-play {
+  position: absolute;
+  right: 5px;
+  bottom: 5px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(3, 10, 15, 0.78);
+  color: #fff;
+  font-size: 10px;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+}
+.bib-play:hover {
+  background: var(--acc);
+  color: #041014;
+}
+.bib-real-info {
+  padding: 6px 6px 7px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.bib-real-nome {
+  font-size: 10.5px;
+  font-weight: 600;
+  line-height: 1.25;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.bib-real-sub,
+.bib-real-lic {
+  font-size: 9px;
+  color: var(--fg2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.bib-real-acoes {
+  display: flex;
+  gap: 3px;
+  margin-top: 4px;
+}
+.bib-real-acoes .btn {
+  font-size: 9.5px;
+  padding: 3px 5px;
+  line-height: 1.2;
+}
+.bib-real-acoes .btn.primary {
+  flex: 1;
+}
+.bib-real-rodape {
+  margin-top: 10px;
+  font-size: 9.5px;
+  color: var(--fg2);
+  text-align: center;
+  line-height: 1.5;
+}
+
+/* Pack do Editor — aba "Pronto para usar" */
+.pk-pronto {
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  padding: 8px;
+  margin-bottom: 8px;
+  background: var(--bg2);
+}
+.pk-pronto-topo {
+  display: flex;
+  gap: 7px;
+  align-items: center;
+  margin-bottom: 6px;
+}
+.pk-pronto .pk-arquivo {
+  padding: 4px 0;
+}
+.pk-pronto .pk-arquivo + .pk-arquivo {
+  border-top: 1px dashed var(--line);
+}

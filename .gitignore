@@ -60,3 +60,8 @@ derivados/
 # runtime local da Vercel (gerado por vercel-dev.mjs)
 .vercel-dev/
 .vercel/
+
+# gravações brutas do vídeo (o arquivo final fica em public/)
+video-demo/demo/
+video-demo/tmp/
+video-demo/showcase/

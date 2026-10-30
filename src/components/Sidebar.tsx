@@ -7,6 +7,7 @@ import { fmtBytes, fmtTime } from '../lib/anim';
 import { uid } from '../types';
 import type { EffectType } from '../types';
 import { BibliotecaXML } from './BibliotecaXML';
+import { BibliotecaReal } from './BibliotecaReal';
 import { abrirComPlano } from './TopBar';
 
 interface Props {
@@ -21,6 +22,7 @@ export function Sidebar({ onImport, onAdicionarTudo, onLimparMidia, mobileOpen }
   const { doc, addAsset } = useEditor();
   const { sidebarTab, setSidebarTab, openModal, installedPacks, toast } = useUI();
   const [q, setQ] = useState('');
+  const [modoLib, setModoLib] = useState<'prontos' | 'midia'>('midia');
   const [cat, setCat] = useState<string>('Tudo');
   const [dragOver, setDragOver] = useState(false);
 
@@ -103,6 +105,21 @@ export function Sidebar({ onImport, onAdicionarTudo, onLimparMidia, mobileOpen }
 
       {sidebarTab === 'library' && (
         <>
+          <div className="lib-modo">
+            <button className={modoLib === 'midia' ? 'active' : ''} onClick={() => setModoLib('midia')}>
+              ♪ Músicas e arquivos
+            </button>
+            <button className={modoLib === 'prontos' ? 'active' : ''} onClick={() => setModoLib('prontos')}>
+              ✦ Efeitos e templates
+            </button>
+          </div>
+          {modoLib === 'midia' && (
+            <div className="panel-body" style={{ padding: '0 8px 8px' }}>
+              <BibliotecaReal />
+            </div>
+          )}
+          {modoLib === 'prontos' && (
+        <>
           <div className="search-wrap">
             <input
               className="search"
@@ -141,6 +158,8 @@ export function Sidebar({ onImport, onAdicionarTudo, onLimparMidia, mobileOpen }
             </div>
             {items.length === 0 && <div className="empty-state">Nada encontrado para “{q}”.</div>}
           </div>
+        </>
+          )}
         </>
       )}
 

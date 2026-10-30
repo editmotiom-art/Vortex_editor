@@ -22,18 +22,32 @@ export interface Voz {
   id: string;
   nome: string;
   idioma: string;
+  /** multiplicador de tom (1 = original). Aplicado no áudio depois do TTS. */
+  tom?: number;
+  /** multiplicador de ritmo (1 = original) */
+  ritmo?: number;
   /** id para ElevenLabs (quando o admin escolhe esse provedor) */
   eleven?: string;
 }
 
+/**
+ * Catálogo HONESTO: cada item é uma combinação que o motor realmente
+ * entrega diferente (idioma/região/velocidade). Antes havia sete "vozes"
+ * que saíam com o mesmo timbre — agora o nome diz o que muda:
+ *   · Ana  = pt-BR neutra
+ *   · Bruno = pt-BR mais grave e lenta
+ *   · Clara = pt-BR rápida (texto longo)
+ *   · Inês = pt-PT · Emma = en-US · Liam = en-GB · Sofía = es-ES
+ * Com ElevenLabs/OpenAI ligado no painel, o timbre vem do provedor.
+ */
 export const VOZES: Voz[] = [
-  { id: 'pt-BR-f', nome: 'Ana · pt-BR feminina', idioma: 'pt-BR', eleven: '21m00Tcm4TlvDq8ikWAM' },
-  { id: 'pt-BR-m', nome: 'Bruno · pt-BR masculina', idioma: 'pt-BR', eleven: 'pNInz6obpgDQGcFmaJgB' },
-  { id: 'pt-BR-n', nome: 'Clara · pt-BR narração', idioma: 'pt-BR', eleven: 'EXAVITQu4vr4xnSDxMaL' },
+  { id: 'pt-BR-f', nome: 'Ana · pt-BR neutra', idioma: 'pt-BR', eleven: '21m00Tcm4TlvDq8ikWAM' },
+  { id: 'pt-BR-m', nome: 'Bruno · grave (tom −25%)', idioma: 'pt-BR', tom: 0.75, ritmo: 0.94, eleven: 'pNInz6obpgDQGcFmaJgB' },
+  { id: 'pt-BR-n', nome: 'Clara · aguda e rápida', idioma: 'pt-BR', tom: 1.14, ritmo: 1.08, eleven: 'EXAVITQu4vr4xnSDxMaL' },
   { id: 'pt-PT-f', nome: 'Inês · pt-PT', idioma: 'pt-PT', eleven: '21m00Tcm4TlvDq8ikWAM' },
   { id: 'en-US-f', nome: 'Emma · en-US', idioma: 'en-US', eleven: 'EXAVITQu4vr4xnSDxMaL' },
-  { id: 'en-US-m', nome: 'Liam · en-US', idioma: 'en-US', eleven: 'pNInz6obpgDQGcFmaJgB' },
-  { id: 'es-f', nome: 'Sofía · es', idioma: 'es', eleven: 'EXAVITQu4vr4xnSDxMaL' },
+  { id: 'en-GB-m', nome: 'Liam · en-GB', idioma: 'en-GB', eleven: 'pNInz6obpgDQGcFmaJgB' },
+  { id: 'es-ES-f', nome: 'Sofía · es-ES', idioma: 'es-ES', eleven: 'EXAVITQu4vr4xnSDxMaL' },
 ];
 
 export const VOZES_ELEVEN = [
@@ -62,6 +76,68 @@ export const duracaoDoBlob = (url: string): Promise<number> =>
     setTimeout(() => fim((el.duration || 0) * 1000), 6000);
   });
 
+/**
+ * MUDA O TIMBRE DE VERDADE
+ * ------------------------------------------------------------
+ * O motor gratuito (Google TTS) tem uma voz por idioma. Para o catálogo ter
+ * vozes realmente diferentes sem pagar API, o áudio é reprocessado aqui:
+ * o mesmo motor, com tom e ritmo alterados (Bruno = mais grave e lento,
+ * Clara = mais aguda e rápida). O resultado é um WAV novo, decodificável e
+ * com duração correta — não é só `playbackRate` na hora de tocar.
+ */
+async function transformarAudio(url: string, tom: number, ritmo: number): Promise<{ url: string; duracaoMs: number } | null> {
+  if (Math.abs(tom - 1) < 0.01 && Math.abs(ritmo - 1) < 0.01) return null;
+  try {
+    const dados = await (await fetch(url)).arrayBuffer();
+    const ctx = new OfflineAudioContext(1, 1, 44100);
+    const original = await ctx.decodeAudioData(dados.slice(0));
+    const taxa = Math.max(0.5, Math.min(2, ritmo * tom));
+    const duracao = Math.max(0.2, original.duration / taxa);
+    const render = new OfflineAudioContext(1, Math.ceil(duracao * original.sampleRate) + 1024, original.sampleRate);
+    const fonte = render.createBufferSource();
+    fonte.buffer = original;
+    fonte.playbackRate.value = taxa; // tom + ritmo juntos (voz mais grave/aguda)
+    fonte.connect(render.destination);
+    fonte.start(0);
+    const saida = await render.startRendering();
+
+    /* WAV 16 bits (universal: toca no editor, exporta e abre em qualquer player) */
+    const canais = saida.numberOfChannels;
+    const n = saida.length;
+    const amostras = new Int16Array(n * canais);
+    for (let c = 0; c < canais; c += 1) {
+      const canal = saida.getChannelData(c);
+      for (let i = 0; i < n; i += 1) {
+        const v = Math.max(-1, Math.min(1, canal[i]));
+        amostras[i * canais + c] = v < 0 ? v * 0x8000 : v * 0x7fff;
+      }
+    }
+    const buf = new ArrayBuffer(44 + amostras.length * 2);
+    const dv = new DataView(buf);
+    const txt = (pos: number, t: string) => {
+      for (let i = 0; i < t.length; i += 1) dv.setUint8(pos + i, t.charCodeAt(i));
+    };
+    txt(0, 'RIFF');
+    dv.setUint32(4, 36 + amostras.length * 2, true);
+    txt(8, 'WAVE');
+    txt(12, 'fmt ');
+    dv.setUint32(16, 16, true);
+    dv.setUint16(20, 1, true);
+    dv.setUint16(22, canais, true);
+    dv.setUint32(24, saida.sampleRate, true);
+    dv.setUint32(28, saida.sampleRate * canais * 2, true);
+    dv.setUint16(32, canais * 2, true);
+    dv.setUint16(34, 16, true);
+    txt(36, 'data');
+    dv.setUint32(40, amostras.length * 2, true);
+    new Int16Array(buf, 44).set(amostras);
+    const blob = new Blob([buf], { type: 'audio/wav' });
+    return { url: URL.createObjectURL(blob), duracaoMs: duracao * 1000 };
+  } catch {
+    return null;
+  }
+}
+
 export interface OpcoesVoz {
   texto: string;
   voz?: Voz;
@@ -87,7 +163,8 @@ export async function gerarAudioVoz(op: OpcoesVoz): Promise<{ url: string; durac
         acao: 'voz',
         texto,
         idioma: voz.idioma,
-        voz: cfg.voz?.provedor === 'elevenlabs' ? (voz.eleven ?? '') : voz.idioma,
+        /* o motor usa o ID do catálogo: idioma + velocidade certos por voz */
+        voz: cfg.voz?.provedor === 'elevenlabs' ? (voz.eleven ?? '') : voz.id,
         velocidade,
         provedor: cfg.voz?.provedor ?? 'google',
         chave: cfg.voz?.chave ?? '',
@@ -97,8 +174,11 @@ export async function gerarAudioVoz(op: OpcoesVoz): Promise<{ url: string; durac
     if (r.ok) {
       const blob = await r.blob();
       if (blob.size > 1000) {
-        const url = URL.createObjectURL(blob);
-        return { url, duracaoMs: (await duracaoDoBlob(url)) || 1200 };
+        const cru = URL.createObjectURL(blob);
+        /* timbre próprio de cada voz do catálogo (tom + ritmo) */
+        const mudado = await transformarAudio(cru, voz.tom ?? 1, voz.ritmo ?? 1);
+        if (mudado) return mudado;
+        return { url: cru, duracaoMs: (await duracaoDoBlob(cru)) || 1200 };
       }
     }
   } catch {

@@ -1,0 +1,37 @@
+[
+  {
+    "arquivo": "voz1.mp3",
+    "texto": "Este é o Vortex: o editor de vídeo que roda no navegador, sem instalar nada. Aqui a tela é o sistema de verdade.",
+    "voz": "Ana",
+    "bytes": 94656,
+    "ms": 241
+  },
+  {
+    "arquivo": "voz2.mp3",
+    "texto": "A biblioteca abre com músicas, efeitos sonoros, fotos e vídeos livres. Um clique manda o arquivo para a timeline.",
+    "voz": "Ana",
+    "bytes": 95424,
+    "ms": 290
+  },
+  {
+    "arquivo": "voz3.mp3",
+    "texto": "O Pack do Editor lê o Drive de verdade. Se o arquivo abre no editor, ele vem na hora; se é para instalar, o download vai para o seu computador.",
+    "voz": "Ana",
+    "bytes": 112320,
+    "ms": 239
+  },
+  {
+    "arquivo": "voz4.mp3",
+    "texto": "A legenda narra com a voz escolhida. Ana, Bruno e Clara soam diferentes de propósito: tom e ritmo mudam em cada uma.",
+    "voz": "Ana",
+    "bytes": 101376,
+    "ms": 190
+  },
+  {
+    "arquivo": "voz5.mp3",
+    "texto": "Cada conta recebe horas de uso. Nada é liberado sem pagamento confirmado, e o painel do administrador fica fora do painel do cliente.",
+    "voz": "Ana",
+    "bytes": 104832,
+    "ms": 177
+  }
+]

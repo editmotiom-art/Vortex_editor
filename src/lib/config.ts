@@ -101,9 +101,11 @@ export const hashSenha = async (senha: string, sal: string): Promise<string> => 
 
 /** credencial inicial do administrador: admin / vortex2026 */
 /* credencial inicial definida pelo dono do sistema */
-const SENHA_PADRAO = '01082020';
+/* Nenhuma credencial fica escrita no código: o admin é uma conta do banco.
+   Estes valores antigos só existem para migrar instalações velhas e já não
+   são aceitos no login do painel (ver lib/adminSessao.ts). */
 const USUARIO_PADRAO = 'aliceoliveirade22@gmail.com';
-export const ADMIN_USUARIO_INICIAL = 'aliceoliveirade22@gmail.com';
+export const ADMIN_USUARIO_INICIAL = USUARIO_PADRAO;
 const SAL_PADRAO = 'a1b2c3d4e5f60718';
 
 const PADRAO: Config = {
@@ -237,7 +239,8 @@ export const garantirAdmin = async (): Promise<void> => {
   const c = lerConfig();
   let mudou = false;
   if (!c.admin.senhaHash) {
-    c.admin.senhaHash = await hashSenha(SENHA_PADRAO, c.admin.sal);
+    /* hash impossível de usar: o login local do admin foi desativado (agora é no banco) */
+    c.admin.senhaHash = await hashSenha(`desativado-${Math.random()}`, c.admin.sal);
     c.admin.usuario = USUARIO_PADRAO;
     mudou = true;
   }
@@ -249,13 +252,20 @@ export const garantirAdmin = async (): Promise<void> => {
   if (mudou) gravarConfig(c);
 };
 
-export const SENHA_ADMIN_INICIAL = SENHA_PADRAO;
+/** mantido só por compatibilidade de importação — não é mais uma senha válida */
+export const SENHA_ADMIN_INICIAL = '';
 
 /* ---------------- sessão do admin ---------------- */
 
 const K_ADMIN = 'vortex.admin.sessao.v1';
 
-export const entrarAdmin = async (usuario: string, senha: string): Promise<{ ok: boolean; erro?: string }> => {
+/** login local do admin: DESATIVADO — o painel só abre com a conta de admin do banco */
+export const entrarAdmin = async (_usuario: string, _senha: string): Promise<{ ok: boolean; erro?: string }> => {
+  return { ok: false, erro: 'Entre com sua conta de administrador (validada no servidor).' };
+};
+
+/** função antiga, mantida para não quebrar imports: não valida mais nada */
+const entrarAdminLocalDesativado = async (usuario: string, senha: string): Promise<{ ok: boolean; erro?: string }> => {
   await garantirAdmin();
   const c = lerConfig();
   if (usuario.trim().toLowerCase() !== c.admin.usuario.toLowerCase()) {

@@ -7,7 +7,7 @@
  */
 import { build } from 'esbuild';
 import { createServer } from 'node:http';
-import { readFile, stat } from 'node:fs/promises';
+import { readFile, rm, stat } from 'node:fs/promises';
 import { extname, join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
@@ -31,9 +31,13 @@ const TIPOS = {
   '.mp3': 'audio/mpeg',
 };
 
+const compilados = new Map();
+
 async function carregar(nome) {
-  if (handlers.has(nome)) return handlers.get(nome);
-  const saida = `.vercel-dev/${nome}.mjs`;
+  /* a função é recompilada a cada pedido, com nome novo: sem isso o Node
+     reaproveitava o módulo em cache e o servidor rodava a versão antiga
+     (um teste chegou a passar com código que não existia mais) */
+  const saida = `.vercel-dev/${nome}-${Date.now()}.mjs`;
   await build({
     entryPoints: [`api/${nome}.ts`],
     outfile: saida,
@@ -45,6 +49,14 @@ async function carregar(nome) {
   });
   const mod = await import(pathToFileURL(join(RAIZ, saida)).href);
   handlers.set(nome, mod.default);
+  // cada compilação vai para o mapa e as antigas saem do disco
+  for (const [chave, arquivo] of compilados) {
+    if (Date.now() - chave > 60_000) {
+      compilados.delete(chave);
+      void rm(join(RAIZ, arquivo), { force: true }).catch(() => {});
+    }
+  }
+  compilados.set(Date.now(), saida);
   return mod.default;
 }
 

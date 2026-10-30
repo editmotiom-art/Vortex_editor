@@ -1,7 +1,5 @@
 import { useEffect, useState } from 'react';
 import {
-  ADMIN_USUARIO_INICIAL,
-  SENHA_ADMIN_INICIAL,
   gravarConfig,
   lerConfig,
   testarIA,
@@ -190,7 +188,7 @@ export function Admin({ onSair }: { onSair: () => void }) {
 /* ---------------- login ---------------- */
 
 function LoginAdmin({ onEntrar }: { onEntrar: () => void }) {
-  const [usuario, setUsuario] = useState(ADMIN_USUARIO_INICIAL);
+  const [usuario, setUsuario] = useState('');
   const [senha, setSenha] = useState('');
   const [erro, setErro] = useState('');
   const [carregando, setCarregando] = useState(false);
@@ -228,7 +226,13 @@ function LoginAdmin({ onEntrar }: { onEntrar: () => void }) {
         </div>
 
         <label style={rotulo}>Usuário</label>
-        <input style={{ ...campo, marginBottom: 12 }} value={usuario} onChange={(e) => setUsuario(e.target.value)} autoComplete="username" />
+        <input
+          style={{ ...campo, marginBottom: 12 }}
+          value={usuario}
+          onChange={(e) => setUsuario(e.target.value)}
+          autoComplete="username"
+          placeholder="e-mail do administrador"
+        />
 
         <label style={rotulo}>Senha</label>
         <input
@@ -251,12 +255,7 @@ function LoginAdmin({ onEntrar }: { onEntrar: () => void }) {
         </button>
 
         <div style={{ marginTop: 18, padding: 11, borderRadius: 8, background: 'var(--bg-2)', border: '1px solid var(--line)', fontSize: 11, color: 'var(--txt-2)', lineHeight: 1.6 }}>
-          <b style={{ color: 'var(--txt-1)' }}>Primeiro acesso</b>
-          <br />
-          usuário: <code style={{ color: 'var(--acc)' }}>aliceoliveirade22@gmail.com</code> · senha:{' '}
-            <code style={{ color: 'var(--acc)' }}>01082020</code>
-          <br />
-          Troque em <b>Acesso do admin</b> depois de entrar.
+          Acesso restrito à administração. Entre com a conta de administrador.
         </div>
       </form>
     </div>

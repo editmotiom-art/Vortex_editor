@@ -10,7 +10,8 @@
  * Nada disso usa chave, nada é gravado no servidor.
  */
 
-export type FonteImagem = 'pollinations' | 'picsum' | 'canvas';
+/** 'canvas' = nada foi gerado (o pedido não foi atendido) — a tela avisa isso */
+export type FonteImagem = 'servidor' | 'pollinations' | 'canvas';
 
 export interface ResultadoImagem {
   ok: boolean;
@@ -69,40 +70,88 @@ const desenharNoCanvas = (texto: string, formato: string): string => {
   return c.toDataURL('image/png');
 };
 
-/** tenta o Pollinations com o prompt já montado pela skill */
+/**
+ * Gera a imagem de verdade (Pollinations/Flux, sem chave).
+ *
+ * Regras que corrigem o "pedi um dragão e veio outra coisa":
+ *  · o pedido do cliente vai inteiro no início do prompt;
+ *  · seed FIXO enquanto o pedido não muda (pedir de novo a mesma coisa não
+ *    troca a cena; mudar uma palavra muda o resultado);
+ *  · se o motor cair, a resposta é `canvas` + erro — a tela DIZ que não
+ *    conseguiu gerar. Nada de entregar foto aleatória como se fosse a imagem
+ *    pedida (era o que acontecia com o Picsum).
+ */
 export async function gerarImagemGratis(
   prompt: string,
   formato: 'vertical' | 'quadrado' | 'horizontal' = 'vertical',
+  semente?: number,
 ): Promise<ResultadoImagem> {
   const [w, h] = PROPORCOES[formato] ?? PROPORCOES.vertical;
 
+  /* semente estável por pedido (muda quando o pedido muda) */
+  const hash = (t: string): number => {
+    let n = 2166136261;
+    for (let i = 0; i < t.length; i += 1) {
+      n ^= t.charCodeAt(i);
+      n = Math.imul(n, 16777619);
+    }
+    return Math.abs(n) % 1000000;
+  };
+  const seed = semente ?? hash(prompt.trim().toLowerCase());
+
+  let ultimoErro = '';
+
+  const [largura, altura] = [w, h];
+
+  /* 1) pelo SERVIDOR do site: sem CORS, sem bloqueio por origem, e o
+        código de erro chega traduzido (cota do motor, tempo esgotado…) */
   try {
-    const url =
-      `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt.slice(0, 900))}` +
-      `?width=${w}&height=${h}&model=flux&nologo=true&seed=${Date.now() % 99999}` +
-      `&referrer=${encodeURIComponent(location.hostname || 'vortex-editor.netlify.app')}`;
-    const r = await fetch(url);
-    if (r.ok) {
+    const { urlFuncao } = await import('./api');
+    const r = await fetch(urlFuncao('ferramentas'), {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ acao: 'imagem', prompt, w: largura, h: altura, seed }),
+      signal: AbortSignal.timeout(95_000),
+    });
+    const tipo = r.headers.get('content-type') ?? '';
+    if (r.ok && /image\//i.test(tipo)) {
+      const blob = await r.blob();
+      if (blob.size > 3000) return { ok: true, url: URL.createObjectURL(blob), fonte: 'servidor' };
+      ultimoErro = 'o servidor devolveu imagem vazia';
+    } else {
+      const corpo = (await r.json().catch(() => ({}))) as { erro?: string };
+      ultimoErro = corpo.erro ?? `servidor respondeu ${r.status}`;
+    }
+  } catch (e) {
+    ultimoErro = (e as Error).name === 'TimeoutError' ? 'demorou demais' : (e as Error).message;
+  }
+
+  /* 2) direto do navegador (sem parâmetros que o motor cobra) */
+  for (const tentativa of [0, 1]) {
+    try {
+      const url =
+        `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt.slice(0, 900))}` +
+        `?width=${w}&height=${h}&nologo=true`;
+      const r = await fetch(url, { signal: AbortSignal.timeout(90_000) });
+      if (!r.ok) {
+        ultimoErro = `motor de imagem respondeu ${r.status}`;
+        continue;
+      }
       const blob = await r.blob();
       if (blob.size > 3000 && blob.type.startsWith('image')) {
         return { ok: true, url: URL.createObjectURL(blob), fonte: 'pollinations' };
       }
+      ultimoErro = 'o motor devolveu um arquivo vazio';
+    } catch (e) {
+      ultimoErro = (e as Error).name === 'TimeoutError' ? 'o motor demorou demais' : (e as Error).message;
+      if (tentativa === 1) break;
     }
-  } catch {
-    /* tenta a próxima */
   }
 
-  try {
-    const r = await fetch(`https://picsum.photos/${w}/${h}?random=${Date.now() % 9999}`);
-    if (r.ok) {
-      const blob = await r.blob();
-      if (blob.size > 3000) return { ok: true, url: URL.createObjectURL(blob), fonte: 'picsum' };
-    }
-  } catch {
-    /* cai no canvas */
-  }
-
-  return { ok: true, url: desenharNoCanvas(prompt, formato), fonte: 'canvas' };
+  return {
+    ok: false,
+    erro: `Não consegui gerar a imagem agora (${ultimoErro || 'motor indisponível'}). Tente de novo em instantes ou ligue uma API de imagem no painel.`,
+  };
 }
 
 /**

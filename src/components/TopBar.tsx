@@ -172,9 +172,12 @@ export function TopBar({ onImport }: Props) {
         Novo
       </button>
 
-      <button className="btn ghost" onClick={() => { location.hash = 'admin'; }} title="Painel administrativo">
-        Admin
-      </button>
+      {/* porta do painel administrativo: só para quem é admin no banco */}
+      {user?.papel === 'admin' && (
+        <button className="btn ghost" onClick={() => { location.hash = 'admin'; }} title="Painel administrativo">
+          Admin
+        </button>
+      )}
       <button className="btn" onClick={() => openModal('account')} title="Conta e assinatura">
         {user && (user.papel === 'admin' || user.horasRestantes > 0) ? (
           <span className="pill paid">{user.plan === 'nenhum' ? 'SEM PLANO' : user.plan.toUpperCase()}</span>

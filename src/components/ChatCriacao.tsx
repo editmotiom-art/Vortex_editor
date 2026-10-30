@@ -87,14 +87,19 @@ export function ChatCriacao({ aoFechar }: { aoFechar?: () => void }) {
     toast(`${novas.length} referência(s) anexada(s)`, 'ok');
   };
 
-  /** prompt final = pedido + instruções da skill + formato + referência */
+  /**
+   * PROMPT DE IMAGEM — o pedido do cliente vem SEMPRE primeiro e inteiro.
+   * O que entra depois é só qualidade visual (luz, lente, acabamento).
+   * O texto longo da skill NÃO entra: ele falava de roteiro/enquadramento de
+   * vídeo e o modelo de imagem se perdia, entregando outra cena.
+   */
   const montarPrompt = (base: string) => {
     const ref = referencias.length
-      ? ` O cliente mandou uma referência (${referencias.map((r) => r.nome).join(', ')}): siga o mesmo enquadramento, luz e paleta dela.`
+      ? `Match the framing, lighting and color palette of the attached reference (${referencias.map((r) => r.nome).join(', ')}).`
       : '';
-    const formatoTxt =
-      formato === 'vertical' ? 'vertical 9:16' : formato === 'quadrado' ? 'quadrado 1:1' : 'horizontal 16:9';
-    return `${base}. Formato ${formatoTxt}. Estilo: ${skill.texto.slice(0, 900)}${ref}`;
+    const enquadramento =
+      formato === 'vertical' ? 'vertical 9:16 composition' : formato === 'quadrado' ? 'square 1:1 composition' : 'wide 16:9 composition';
+    return `${base}. ${enquadramento}, cinematic lighting, sharp focus, high detail, professional photography, no text, no watermark. ${ref}`.trim();
   };
 
   const criarImagem = async () => {
@@ -134,7 +139,7 @@ export function ChatCriacao({ aoFechar }: { aoFechar?: () => void }) {
           fonte: r.fonte,
         });
       } else {
-        falar({ autor: 'vortex', texto: `Não consegui gerar: ${r.erro ?? 'tente de novo'}`, erro: true });
+        falar({ autor: 'vortex', texto: r.erro ?? 'Não consegui gerar a imagem. Tente de novo.', erro: true });
       }
     } catch (e) {
       falar({ autor: 'vortex', texto: `Falha: ${(e as Error).message}`, erro: true });

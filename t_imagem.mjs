@@ -1,0 +1,21 @@
+import { chromium } from 'playwright';
+const b = await chromium.launch({ channel: 'chromium' });
+const ctx = await b.newContext({ viewport: { width: 1400, height: 900 } });
+if (process.env.TOK) await ctx.addInitScript((t) => localStorage.setItem('vortex.token.v1', t), process.env.TOK);
+const p = await ctx.newPage();
+p.on('pageerror', (e) => console.log('pageerror:', e.message.slice(0, 120)));
+await p.goto('http://localhost:3001/', { waitUntil: 'domcontentloaded' });
+await p.waitForTimeout(4000);
+await p.locator('.topbar button', { hasText: 'IA' }).first().click();
+await p.waitForTimeout(1200);
+// escolhe 16:9, digita o pedido e manda criar
+await p.locator('.overlay button:has-text("16:9")').first().click().catch(() => {});
+await p.locator('.overlay textarea.cc-texto').fill('dragão cuspindo fogo');
+await p.locator('.overlay button:has-text("Criar imagem")').first().click();
+await p.waitForTimeout(70000);
+const imgs = await p.locator('.overlay img').count();
+const fontes = await p.locator('.overlay img').evaluateAll((els) => els.map((e) => (e.src || '').slice(0, 90)));
+console.log('imagens no chat:', imgs);
+console.log('fontes:', fontes.slice(0, 4));
+await p.screenshot({ path: 'prova-imagem.png', fullPage: false });
+await b.close();
