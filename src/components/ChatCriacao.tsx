@@ -30,6 +30,9 @@ interface Mensagem {
   texto: string;
   imagem?: string;
   fonte?: FonteImagem | 'api' | 'pollinations-texto' | 'local';
+  /** aviso honesto: a imagem é foto de acervo, não gerada */
+  banco?: boolean;
+  credito?: string;
   erro?: boolean;
 }
 
@@ -93,14 +96,68 @@ export function ChatCriacao({ aoFechar }: { aoFechar?: () => void }) {
    * O texto longo da skill NÃO entra: ele falava de roteiro/enquadramento de
    * vídeo e o modelo de imagem se perdia, entregando outra cena.
    */
-  const montarPrompt = (base: string) => {
-    const ref = referencias.length
-      ? `Match the framing, lighting and color palette of the attached reference (${referencias.map((r) => r.nome).join(', ')}).`
-      : '';
-    const enquadramento =
-      formato === 'vertical' ? 'vertical 9:16 composition' : formato === 'quadrado' ? 'square 1:1 composition' : 'wide 16:9 composition';
-    return `${base}. ${enquadramento}, cinematic lighting, sharp focus, high detail, professional photography, no text, no watermark. ${ref}`.trim();
-  };
+/** dicionário do que o cliente escreve em português → termo que o motor entende */
+const TRADUZ: [RegExp, string][] = [
+  [/\bdrag[ãa]o\b/gi, 'dragon'],
+  [/\bcuspindo\b/gi, 'breathing'],
+  [/\bfogo\b/gi, 'fire'],
+  [/\bgato\b/gi, 'cat'],
+  [/\bcachorro\b/gi, 'dog'],
+  [/\bcarro\b/gi, 'car'],
+  [/\bmoto\b/gi, 'motorcycle'],
+  [/\bmulher\b/gi, 'woman'],
+  [/\bhomem\b/gi, 'man'],
+  [/\bcidade\b/gi, 'city'],
+  [/\bnoite\b/gi, 'at night'],
+  [/\bmar\b/gi, 'sea'],
+  [/\bpraia\b/gi, 'beach'],
+  [/\bmontanha\b/gi, 'mountain'],
+  [/\bfloresta\b/gi, 'forest'],
+  [/\bcaf[eé]\b/gi, 'coffee'],
+  [/\bcomida\b/gi, 'food'],
+  [/\bproduto\b/gi, 'product'],
+  [/\bpessoa\b/gi, 'person'],
+  [/\bcrian[çc]a\b/gi, 'child'],
+  [/\bneve\b/gi, 'snow'],
+  [/\bchuva\b/gi, 'rain'],
+  [/\bsol\b/gi, 'sun'],
+  [/\blua\b/gi, 'moon'],
+  [/\bespa[çc]o\b/gi, 'space'],
+  [/\brob[ôo]\b/gi, 'robot'],
+  [/\bcarro\b/gi, 'car'],
+  [/\banimal\b/gi, 'animal'],
+  [/\bp[áa]ssaro\b/gi, 'bird'],
+  [/\bflor\b/gi, 'flower'],
+  [/\bcapa\b/gi, 'cover'],
+  [/\bcapa do reels\b/gi, 'reels cover'],
+  [/\bde\b/gi, 'of'],
+  [/\bdo\b/gi, 'of the'],
+  [/\bda\b/gi, 'of the'],
+  [/\bno\b/gi, 'in the'],
+  [/\bna\b/gi, 'in the'],
+  [/\bcom\b/gi, 'with'],
+  [/\bsem\b/gi, 'without'],
+  [/\bum\b/gi, 'a'],
+  [/\buma\b/gi, 'a'],
+];
+
+/**
+ * O pedido do cliente vai INTEIRO e PRIMEIRO no prompt — e traduzido quando
+ * está em português. Era isso que falhava no teste "dragão cuspindo fogo":
+ * o motor não entende português e o texto da skill vinha na frente.
+ */
+const montarPrompt = (base: string) => {
+  let texto = base.trim();
+  for (const [de, para] of TRADUZ) texto = texto.replace(de, para);
+  texto = texto.replace(/\s+/g, ' ').trim();
+  const ref = referencias.length
+    ? `Match the framing, lighting and color palette of the attached reference (${referencias.map((r) => r.nome).join(', ')}).`
+    : '';
+  const enquadramento =
+    formato === 'vertical' ? 'vertical 9:16' : formato === 'quadrado' ? 'square 1:1' : 'wide 16:9';
+  /* pedido primeiro, sem enfeite na frente e sem texto longo da skill */
+  return `${texto}. ${enquadramento} composition, cinematic lighting, sharp focus, no text, no watermark. ${ref}`.trim();
+};
 
   const criarImagem = async () => {
     const base = pedido.trim() || referencias[0]?.nome || skill.resumo;
@@ -134,9 +191,13 @@ export function ChatCriacao({ aoFechar }: { aoFechar?: () => void }) {
       if (r.ok && r.url) {
         falar({
           autor: 'vortex',
-          texto: `Imagem criada com a skill “${skill.nome}” (motor gratuito). Peça um ajuste ou toque em “usar na timeline”.`,
+          texto: r.banco
+            ? `O gerador de imagens está no limite diário agora, então trouxe a foto REAL do que você pediu — “${base.slice(0, 70)}” — do acervo livre (${r.credito ?? 'Wikimedia Commons'}). Não é imagem inventada: é o assunto pedido. Para gerar do zero, tente de novo em alguns minutos ou ligue uma API de imagem no painel.`
+            : `Imagem criada com a skill “${skill.nome}” (motor gratuito). Peça um ajuste ou toque em “usar na timeline”.`,
           imagem: r.url,
           fonte: r.fonte,
+          banco: r.banco,
+          credito: r.credito,
         });
       } else {
         falar({ autor: 'vortex', texto: r.erro ?? 'Não consegui gerar a imagem. Tente de novo.', erro: true });
@@ -330,7 +391,13 @@ export function ChatCriacao({ aoFechar }: { aoFechar?: () => void }) {
                     <a className="btn ghost sm" href={m.imagem} download={`vortex-${skill?.id ?? 'ia'}.png`}>
                       Baixar
                     </a>
-                    {m.fonte && <span className="cc-fonte">fonte: {m.fonte}</span>}
+                    {m.banco ? (
+                      <span className="cc-fonte cc-banco" title={m.credito}>
+                        foto do acervo · {m.credito ?? 'Wikimedia Commons'}
+                      </span>
+                    ) : (
+                      m.fonte && <span className="cc-fonte">fonte: {m.fonte}</span>
+                    )}
                   </div>
                 </>
               )}

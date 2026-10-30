@@ -2522,3 +2522,12 @@ img, video, canvas { max-width: 100%; }
 .pk-pronto .pk-arquivo + .pk-arquivo {
   border-top: 1px dashed var(--line);
 }
+
+/* aviso de imagem vinda do acervo (não gerada) — fica visível */
+.cc-banco {
+  color: #fbbf24;
+  font-weight: 600;
+  max-width: 60%;
+  white-space: normal;
+  line-height: 1.35;
+}

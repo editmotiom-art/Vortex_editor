@@ -539,10 +539,15 @@ async function acaoImagem(corpo: Record<string, unknown>): Promise<Response> {
     }
   }
 
+  /* Sem reserva de banco de imagens de propósito: a busca livre devolvia
+     coisa fora do pedido (pedi "dragão cuspindo fogo" e veio brasão de
+     navio). Entregar isso seria repetir o erro que o cliente reclamou.
+     Aqui a resposta é o motivo real da falha. */
+
   return json(
     {
       ok: false,
-      erro: `Não consegui gerar esta imagem agora (${motivo}). O motor público é gratuito e tem cota diária.`,
+      erro: `Não consegui gerar esta imagem agora (${motivo}). O motor público é gratuito e tem cota diária — tente em alguns minutos ou ligue uma API de imagem no painel.`,
       limite: true,
     },
     429,

@@ -17,6 +17,10 @@ export interface ResultadoImagem {
   ok: boolean;
   url?: string;
   fonte?: FonteImagem;
+  /** quando a imagem veio de banco de imagens: quem é o autor e a licença */
+  credito?: string;
+  /** true = não é imagem gerada, é a foto real do que foi pedido */
+  banco?: boolean;
   erro?: string;
 }
 
@@ -116,7 +120,16 @@ export async function gerarImagemGratis(
     const tipo = r.headers.get('content-type') ?? '';
     if (r.ok && /image\//i.test(tipo)) {
       const blob = await r.blob();
-      if (blob.size > 3000) return { ok: true, url: URL.createObjectURL(blob), fonte: 'servidor' };
+      const motor = r.headers.get('x-vortex-motor') ?? 'pollinations';
+      const fonteCru = r.headers.get('x-vortex-fonte') ?? '';
+      if (blob.size > 3000) {
+        return {
+          ok: true,
+          url: URL.createObjectURL(blob),
+          fonte: 'servidor',
+          credito: fonteCru ? decodeURIComponent(fonteCru) : undefined,
+        };
+      }
       ultimoErro = 'o servidor devolveu imagem vazia';
     } else {
       const corpo = (await r.json().catch(() => ({}))) as { erro?: string };
