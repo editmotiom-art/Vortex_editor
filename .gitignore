@@ -51,6 +51,9 @@ derivados/
 *.mkv
 *.wav
 *.mp3
+# exceção: vídeo de apresentação usado na página de vendas
+!public/demo-vortex.mp4
+!public/demo-vortex.webm
 *.rar
 *.zip
 !public/**/*.svg
