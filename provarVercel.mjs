@@ -1,0 +1,34 @@
+/** Provas visuais no endereço público da Vercel */
+import { chromium } from 'playwright';
+const URL = process.argv[2] ?? 'https://vortex-editor-gwyd.vercel.app';
+const b = await chromium.launch();
+const p = await (await b.newContext({ viewport: { width: 1280, height: 900 } })).newPage();
+p.setDefaultTimeout(90000);
+await p.goto(URL, { waitUntil: 'networkidle' });
+await p.screenshot({ path: 'docs/prova/20-vercel-landing.png' });
+await p.click('.lp-nav-acoes button:has-text("Abrir editor")');
+await p.waitForTimeout(500);
+await p.fill('input[placeholder="Como quer ser chamado"]', 'Alice');
+await p.fill('input[type=email]', `alice${Date.now()}@v.dev`);
+await p.fill('input[type=password]', 'vortex2026');
+await p.click('button:has-text("Criar conta e abrir o editor")');
+await p.waitForTimeout(2500);
+await p.screenshot({ path: 'docs/prova/21-vercel-editor.png' });
+// painel: aba API e hospedagem com o teste real
+await p.evaluate(() => { location.hash = '#admin'; });
+await p.waitForTimeout(1500);
+await p.fill('input[type=email]', 'aliceoliveirade22@gmail.com').catch(() => {});
+await p.fill('input[type=password]', '01082020').catch(() => {});
+await p.locator('button:has-text("Entrar")').first().click().catch(() => {});
+await p.waitForTimeout(1500);
+await p.locator('button:has-text("API e hospedagem")').first().click();
+await p.waitForTimeout(600);
+await p.locator('button:has-text("Testar /api/ping")').click();
+await p.waitForTimeout(3000);
+console.log('saúde:', await p.locator('text=/API respondeu|Não respondeu/').first().innerText().catch(() => '—'));
+await p.screenshot({ path: 'docs/prova/22-vercel-admin-api.png', fullPage: true });
+const m = await (await b.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, deviceScaleFactor: 2 })).newPage();
+await m.goto(URL, { waitUntil: 'networkidle' });
+await m.screenshot({ path: 'docs/prova/23-vercel-celular.png' });
+console.log('ok, título:', await p.title());
+await b.close();

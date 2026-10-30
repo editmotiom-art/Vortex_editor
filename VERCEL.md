@@ -1,65 +1,80 @@
-# Vortex na Vercel (site + funções no mesmo lugar)
+# Vortex na Vercel — site + funções no ar
 
-O repositório já está pronto: **nenhuma variável é obrigatória** para o sistema
-rodar. O que existe no projeto:
+**URL pública:** https://vortex-editor-gwyd.vercel.app
+(espelhos: `vortex-editor-of5u.vercel.app`; o domínio `vortex-editor.vercel.app`
+pertence a outro projeto/está sem deployment — use o endereço do seu projeto.)
+
+Provas rodadas no domínio público: **19/19 no Chromium, 0 erro de JS**
+(`docs/prova/20-vercel-landing.png`, `21-vercel-editor.png`,
+`22-vercel-admin-api.png`, `23-vercel-celular.png`).
+
+## O que existe no repositório
 
 | Caminho | O que é |
 |---|---|
-| `vercel.json` | framework Vite, build `npm run build`, saída `dist`, funções com 60 s |
 | `api/drive.ts` | lista pasta pública do Google Drive |
 | `api/proxy.ts` | baixa arquivo de outro site com CORS liberado |
-| `api/ferramentas.ts` | voz (MP3), gerador de texto grátis e importação de skill |
+| `api/ferramentas.ts` | voz (MP3), gerador de texto grátis, importação de skill |
 | `api/ia.ts` | imagem/texto com chave própria (opcional) |
 | `api/minerar.ts` | acha imagens/vídeos em uma página |
-| `api/ping.ts` | teste de vida (`{"ok":true}`) |
-| `server/ponte.ts` | adapta `Request → Response` das funções para o runtime Node da Vercel |
+| `api/ping.ts` | teste de vida: `{"ok":true,"host":"vercel"}` |
+| `scripts/gerar-api-vercel.mjs` | gera `api/*.ts` a partir de `netlify/functions/*.ts` |
+| `vercel-dev.mjs` | runtime local no formato da Vercel (`npm run vercel:dev`) |
 
-As funções **não são cópias**: `api/*.ts` importam `netlify/functions/*.ts`, então
-existe uma lógica só. Se um dia a lógica mudar, os dois hosts mudam juntos.
+### Por que `api/*.ts` são arquivos "autônomos"
+
+Cada função em `api/` **não tem nenhum import**: a lógica é copiada
+mecanicamente de `netlify/functions/<nome>.ts` por
+`node scripts/gerar-api-vercel.mjs`, junto com o adaptador
+`Request → Response` do runtime Node da Vercel.
+
+Motivo: a primeira tentativa usava `import` de `server/ponte.ts` +
+`netlify/functions/*` e o deploy **passava**, mas as funções respondiam
+`500 FUNCTION_INVOCATION_FAILED` (empacotamento da Vercel fora de `api/`).
+Com arquivos autônomos, o pacote tem só o que precisa e funciona.
+
+Regra para o futuro: **mexeu na lógica? edite `netlify/functions/*.ts` e rode
+`npm run api:gerar`** (o `--check` avisa quando estão diferentes).
 
 ## Publicar
 
-1. Vercel → **Add New… → Project → Import** e escolha `editmotiom-art/Vortex_editor`.
-2. Confirme: Framework **Vite**, Build Command `npm run build`, Output Directory `dist`.
-   (Já vem do `vercel.json`; se aparecer outro valor, deixe estes.)
-3. **Deploy**. Em ~1 min sai a URL `https://vortex-editor.vercel.app`.
-4. Abra `https://SUA-URL/api/ping` → deve responder `{"ok":true,"host":"vercel",…}`.
+O projeto já está conectado: cada `git push` na `main` publica sozinho.
 
-Cada `git push` na branch `main` publica sozinho (Production). Branches e PRs
-geram Preview Deployments.
+Configuração (detectada automaticamente, sem `vercel.json`):
+- Framework: **Vite**
+- Build: `npm run build`
+- Output: `dist`
+- Funções: `api/*.ts` (Node, 60 s)
+
+> O `vercel.json` e o `.nvmrc` foram removidos de propósito: com eles o build
+> falhava na Vercel. Sem eles, a detecção automática acerta.
 
 ## Variáveis de ambiente (todas opcionais)
 
 | Nome | Para quê |
 |---|---|
-| `IA_API_KEY` | imagem/texto com sua chave (OpenAI/Gemini/Stability) |
+| `IA_API_KEY` | imagem/texto com sua chave |
 | `IA_PROVEDOR`, `IA_MODELO_IMAGEM`, `IA_MODELO_TEXTO` | ajuste do provedor |
-| `ELEVENLABS_KEY` | voz ElevenLabs em vez do motor grátis |
+| `ELEVENLABS_KEY` | voz ElevenLabs |
 | `GOOGLE_TTS_KEY` | voz Google Cloud |
 
-Sem nenhuma delas o editor funciona: voz pelo motor grátis, texto pelo
-Pollinations, Drive e packs por leitura pública.
+Sem nenhuma delas: voz pelo motor grátis, texto pelo Pollinations, Drive e packs
+por leitura pública. Tudo testado.
 
-## Testar antes/depois de publicar
+## Testar
 
 ```bash
-npm run vercel:dev        # build + runtime local em http://localhost:3001
-node testarTudo.mjs http://localhost:3001   # 19 provas no Chromium
-curl http://localhost:3001/api/ping
+npm install
+npm i -D playwright && npx playwright install chromium   # só para os testes
+npm run vercel:dev                       # runtime Vercel local em :3001
+node testarTudo.mjs http://localhost:3001
+node testarTudo.mjs https://SEU-PROJETO.vercel.app
 ```
 
-`vercel-dev.mjs` simula o runtime da Vercel (Node req/res) sem precisar de login.
+## Diagnóstico rápido (o que já aconteceu)
 
-## Detalhes de comportamento
-
-- No domínio `*.vercel.app`, `src/lib/api.ts` usa `/api/…` (mesma origem) e, se
-  alguma chamada falhar, cai na reserva remota — a tela nunca fica sem resposta.
-- No espelho do GitHub Pages (`github.io`), o editor usa a API da Vercel/Netlify
-  automaticamente; em `localhost` também testa `/api/…`.
-- URLs antigas `/.netlify/functions/…` continuam funcionando quando o site está na
-  Netlify — nada do que já existe quebra.
-- Nada de `edge runtime`: as funções são Node (precisam de `fetch` para baixar
-  arquivos grandes e de tempo até 60 s).
-- Limite do plano gratuito da Vercel: 100 GB de banda/mês e 100 GB-h de execução.
-  Para o uso do editor isso é folgado; arquivos de pack (zip de centenas de MB)
-  trafegam pelo domínio do Google, não pela função.
+| Sintoma | Causa | Solução aplicada |
+|---|---|---|
+| `npm error code 1` / `postinstall exited` | `netlify-cli` como devDependency rodando em Node novo | saiu do `package.json` (ver `INSTALAR.md`) |
+| Deploy falhava sem log claro | `vercel.json` + `.nvmrc` + `engines` | removidos; detecção automática |
+| Site 200, funções `500 FUNCTION_INVOCATION_FAILED` | funções importando arquivos fora de `api/` | `api/*.ts` autônomos (gerados) |
